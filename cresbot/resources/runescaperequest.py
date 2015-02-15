@@ -17,58 +17,72 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
-import requests
 from copy import copy
 from time import time, sleep
 from urllib.parse import urlparse
 from platform import python_version as pyv
 
-# move these into a separate file, info.py
+import requests
+
+# @todo move these into info.py
 repo = 'https://github.com/onei/cresbot'
 USER_AGENT = 'Cresbot/%s (Python %s; %s; mailto:cqm.fwd@gmail.com)'
 USER_AGENT %= '0.1', pyv(), repo
 
 class RuneScapeRequest():
 
-    def __init__(self, config:dict):
-        """<doc>"""
+    _last = None
+
+    def __init__(self, url:str, throttle:int=0):
+        """Create a RuneScapeRequest instance.
+
+        Args:
+            url: A string representing a URL pointing to runescape.com for
+                HTTP requests to be sent to.
+            throttle: A positive integer representing the minimum time in
+                seconds between HTTP requests to `url`.
+
+        Raises:
+            ValueError: URL is not a valid runescape domain.
+        """
         # check URL is a runescape.com subdomain
         o = urlparse(url)
             
         if not o.netloc.endswith('runescape.com'):
-            raise ValueError('URL is not a valid runescape domain')
+            raise ValueError('URL is not a valid runescape domain.')
             
         self._url = url
+        self._throttle = throttle
 
-        # default throttle to 0
-        if 'throttle' not in config:
-            config.update({'throttle': 0})
-
-        self._throttle = config['throttle']
-
-        # add user agent for jagex
+        # setup request session
         self._request = requests.Session()
         self._request.headers.update({'User-Agent': USER_AGENT})
 
-    def get(self, params):
-        """<doc>"""
+    def get(self, params:dict):
+        """Makes a request with the GET method.
+
+        Args:
+            params: A dict representing key-value pairs of a query string
+                to be appended to the request URL
+
+        Returns:
+            An instance of requests.models.Response containing the response
+            to the GET request.
+        """
         if self._last is not None:
             diff = time() - self._last
             print(diff)
             
-            if diff < throttle:
+            if diff < self._throttle:
                 sleep(diff)
 
-        # @todo errors?
         ret = self._request.get(self._url, params=params)
+        self._last = time()
         return ret
 
 # simple hiscores test
-conf = {
-    throttle: 0,
-    url: 'http://services.runescape.com/m=hiscore/ranking'
-}
-r = RuneScapeRequest(conf)
+url = 'http://services.runescape.com/m=hiscore/ranking'
+r = RuneScapeRequest(url)
 params = {'category_type': 0, 'table': 0, 'page': 1}
-r.get(params)
-print(res.text)
+resp = r.get(params)
+print(resp.text)

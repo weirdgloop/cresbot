@@ -1,6 +1,5 @@
 # ----------------------------------------------------------------------
 # Copyright (c) 2015 Matthew Dowdell <mdowdell244@gmail.com>.
-#
 # This file is part of Cresbot.
 #
 # Cresbot is free software: you can redistribute it and/or modify
@@ -17,6 +16,7 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
+# ----------------------------------------------------------------------
 # This file is automatically untracked
 #
 # Remember to remove all passwords when pushing changes to this file
@@ -26,6 +26,7 @@
 #
 # To force this file to be untracked after pushing changes, run:
 # $ git update-index --assume-unchanged login.py
+# ----------------------------------------------------------------------
 
 _users = {
     'USERNAME': 'PASSWORD'
@@ -42,7 +43,6 @@ def login(username:str) -> str:
 
     Raises:
         ValueError: Incorrect or unknown username
-
     """
     try:
         password = _users[username]

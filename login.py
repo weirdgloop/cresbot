@@ -17,5 +17,15 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
-username = 'USERNAME'
-password = 'PASSWORD'
+_users = {
+    'USERNAME': 'PASSWORD'
+}
+
+def login(username:str) -> str:
+    """Get the associated password for a given username"""
+    try:
+        password = _users[username]
+    except KeyError:
+        raise ValueError('Incorrect or unknown username')
+
+    return password

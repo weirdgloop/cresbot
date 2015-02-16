@@ -17,12 +17,33 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
+# This file is automatically untracked
+#
+# Remember to remove all passwords when pushing changes to this file
+#
+# To update the repo with changes, run:
+# $ git update-index --no-assume-unchanged login.py
+#
+# To force this file to be untracked after pushing changes, run:
+# $ git update-index --assume-unchanged login.py
+
 _users = {
     'USERNAME': 'PASSWORD'
 }
 
 def login(username:str) -> str:
-    """Get the associated password for a given username"""
+    """Get the associated password for a given username.
+
+    Args:
+        username: Username to get the associated password for.
+
+    Returns:
+        The associated password for `username`.
+
+    Raises:
+        ValueError: Incorrect or unknown username
+
+    """
     try:
         password = _users[username]
     except KeyError:

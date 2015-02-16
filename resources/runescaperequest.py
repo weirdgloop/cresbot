@@ -20,16 +20,8 @@
 from copy import copy
 from time import time, sleep
 from urllib.parse import urlparse
-from platform import python_version as pyv
 import requests
-
-from cresbot import __email__, __version__, __url__
-
-__all__ = ['RuneScapeRequest']
-
-USER_AGENT = 'Cresbot/%s (Python %s; %s; mailto:%s)'
-USER_AGENT %= __version__, pyv(), __url__, __email__
-print(USER_AGENT)
+from cresbot import USER_AGENT
 
 class RuneScapeRequest():
 
@@ -73,8 +65,6 @@ class RuneScapeRequest():
         """
         if self._last is not None:
             diff = time() - self._last
-            # @todo test
-            print(diff)
             
             if diff < self._throttle:
                 sleep(diff)

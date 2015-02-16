@@ -21,7 +21,7 @@
 #
 # Remember to remove all passwords when pushing changes to this file
 #
-# To update the repo with changes, run:
+# To start tracking and allow updates to be pushed to the repo, run:
 # $ git update-index --no-assume-unchanged login.py
 #
 # To force this file to be untracked after pushing changes, run:

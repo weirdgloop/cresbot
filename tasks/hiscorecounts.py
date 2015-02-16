@@ -21,6 +21,7 @@ from datetime import datetime
 from mwapi import MWApi
 from cresbot.resources.runescaperequest import RuneScapeRequest
 from task import Task
+from cresbot.login import login
 
 class HiscoreCounts(Task):
 
@@ -43,7 +44,7 @@ class HiscoreCounts(Task):
     def __init__(self):
         self._updated = datetime.now().strftime('%d %B %Y').lstrip('0')
         self._mwapi = MWApi('http://runescape.wikia.com', '/api.php')
-        self._mwapi.login
+        self._mwapi.login('Cresbot', login('Cresbot'))
         self._rsrequest = RuneScapeRequest('http://services.runescape.com/m=hiscore/ranking')
 
     def run(self):
@@ -55,9 +56,3 @@ class HiscoreCounts(Task):
         # ideally this would be a simple method of MWApi
         # but this will have to do until I get the time to write it
         return ''
-
-    def 
-        
-        
-
-HiscoreCounts()

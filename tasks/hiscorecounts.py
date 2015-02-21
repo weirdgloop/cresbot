@@ -1,6 +1,5 @@
 # ----------------------------------------------------------------------
 # Copyright (c) 2015 Matthew Dowdell <mdowdell244@gmail.com>.
-#
 # This file is part of Cresbot.
 #
 # Cresbot is free software: you can redistribute it and/or modify
@@ -18,8 +17,8 @@
 # ----------------------------------------------------------------------
 
 from datetime import datetime
-from mwapi import MWApi
-from cresbot.resources.runescaperequest import RuneScapeRequest
+from cresbot.lib.mw import Api
+from cresbot.lib.rs.runescaperequest import RuneScapeRequest
 from task import Task
 from cresbot.login import login
 
@@ -36,23 +35,39 @@ class HiscoreCounts(Task):
 
     _skills = ['overall', 'attack', 'defence', 'strength', 'constitution',
                'ranged', 'prayer', 'magic', 'cooking', 'woodcutting',
-               'fletching', 'fishing', 'firemaking', 'craftin', 'smithing',
+               'fletching', 'fishing', 'firemaking', 'crafting', 'smithing',
                'mining', 'herblore', 'agility', 'thieving', 'slayer',
                'farming', 'runecrafting', 'hunter', 'construction',
                'summoning', 'dungeoneering', 'divination']
 
     def __init__(self):
         self._updated = datetime.now().strftime('%d %B %Y').lstrip('0')
-        self._mwapi = MWApi('http://runescape.wikia.com', '/api.php')
+        self._mwapi = Api('http://runescape.wikia.com')
         self._mwapi.login('Cresbot', login('Cresbot'))
         self._rsrequest = RuneScapeRequest('http://services.runescape.com/m=hiscore/ranking')
 
     def run(self):
         """Run hiscore counts task"""
+        # @todo write something to do self._mwapi.page('PAGENAME').text()
         text = self.get_text('Module:Hiscore counts')
+        print(text)
 
     def get_text(self, title:str) -> str:
         """Get the text of a wiki page"""
         # ideally this would be a simple method of MWApi
         # but this will have to do until I get the time to write it
-        return ''
+        params = {
+            'action': 'query',
+            'prop': 'revisions',
+            'rvprop': 'content',
+            'titles': title
+        }
+
+        resp = self._mwapi.call(**params)
+        resp = resp['query']['pages']
+        text = resp[tuple(resp.keys())[0]]['revisions'][0]['*']
+
+        return text
+
+#t = HiscoreCounts()
+#t.run()

@@ -1,0 +1,11 @@
+* GED searching
+** extract examine, itemid, price
+** also get json data for setting up new exchange modules and updating if required
+*** look into maintaining volume database if possible
+
+* hiscores
+** lookup specific pages for hiscorecounts task
+** lookup hiscores for specific users (and parse .csv file)
+
+// search api for searching items on GED
+http://services.runescape.com/m=itemdb_rs/results.ws?query=bucket

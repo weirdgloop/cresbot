@@ -64,22 +64,34 @@ class HiscoreCounts(Task):
 
     def run(self):
         """Run hiscore counts task"""
-        # @todo write something to do self._mwapi.page('PAGENAME').text()
-        text = self.get_text('Module:Hiscore counts')
         self._log.info('Starting HiscoreCounts task.')
         
-        #text = self.get_count(text, 'count_99s', self._LVL, self._LVL_99)
-        #text = self.get_count(text, 'count_120s', self._XP, self._XP_120)
-        #text = self.get_count(text, 'count_200mxp', self._XP, self._XP_MAX)
+        self._log.info('Getting current counts text.')
+        # @todo write something to do self._mwapi.page('PAGENAME').text()
+        text = self.get_text('Module:Hiscore counts')
+
+        text = self.get_count(text, 'count_99s', self._LVL, self._LVL_99)
+        text = self.get_count(text, 'count_120s', self._XP, self._XP_120)
+        text = self.get_count(text, 'count_200mxp', self._XP, self._XP_MAX)
         text = self.get_lowest_ranks(text, 'lowest_ranks')
 
-        self._log.info('HiscoreCounts task complete.')
-        
+        # @todo update page with new text
+        # get token
+        # self._mwapi.call(
+        # send updated text
+        # self._mwapi.call(action='edit', ...)
 
-    def get_text(self, title:str) -> str:
-        """Get the text of a wiki page"""
-        # ideally this would be a simple method of MWApi
-        # but this will have to do until I get the time to write it
+        self._log.info('HiscoreCounts task complete.')
+
+    def get_text(self, title:str):
+        """Get the text of a wiki page.
+
+        Args:
+            title:
+
+        Returns:
+            A string...
+        """
         params = {
             'action': 'query',
             'prop': 'revisions',
@@ -93,7 +105,19 @@ class HiscoreCounts(Task):
 
         return text
 
-    def get_count(self, text:str, count:str, val_type:int, value:int) -> str:
+    def update_text(self, title:str, text:str):
+        """Alter the text of a wiki page.
+
+        Args:
+            title:
+            text:
+
+        Returns:
+            ???
+        """
+        print('updating...')
+
+    def get_count(self, text:str, count:str, val_type:int, value:int):
         """Update the specified count.
 
         Args:
@@ -145,7 +169,7 @@ class HiscoreCounts(Task):
             new_count = self._get_counts(params, val_type, val)
             self._log.info('Number of players with requested value in %s: %s.',
                            skill, new_count)
-            repl2 = repl.replace(num, '{:,}'.format(new_count))
+            repl2 = repl.replace(num, new_count)
 
             table = table.replace(repl, repl2)
 
@@ -153,13 +177,13 @@ class HiscoreCounts(Task):
         updated = re.search(rgx_count % 'updated', table).group(1)
         table = table.replace(updated, self._updated)
 
+        # update text
         text = text.replace(old_table, table)
-
         self._log.info('%s subtask complete.', count)
         return text
 
-    def _get_counts(self, params:dict, col:int, value:int, checked:list=[],times:int=0) -> int:
-        """Scrape the requested hiscors page looking for the last occurance
+    def _get_counts(self, params:dict, col:int, value:int, checked:list=[],times:int=0):
+        """Scrape the requested hiscores page looking for the last occurance
         of `value`.
 
         Args:
@@ -172,7 +196,7 @@ class HiscoreCounts(Task):
             checked: A list of pages already checked.
 
         Returns:
-            An integer representing the rank of the last player with `value`.
+            An string representing the rank of the last player with `value`.
 
         Notes:
            This is an internal method and should not be called directly.
@@ -218,16 +242,15 @@ class HiscoreCounts(Task):
         if int(first_val) < value:
             # check we're not on the first page (no players have `value`)
             if params['page'] == 1:
-                return 0
+                return '0'
 
             # check if the previous page has already been visited
             # to stop an infinite loop
             if (params['page'] - 1) in checked:
                 rank = trs[0][0].a.string \
-                       .strip() \
-                       .replace(',', '')
+                       .strip()
 
-                return int(rank)
+                return rank
 
             # track which pages have already been visited
             checked.append(params['page'])
@@ -242,20 +265,19 @@ class HiscoreCounts(Task):
         
         for tds in trs:
             rank = tds[0].a.string \
-                   .strip() \
-                   .replace(',', '')
+                   .strip()
             val = tds[col].a.string \
                   .strip() \
                   .replace(',', '')
 
             if int(val) >= value:
-                data.append(int(rank))
+                data.append(rank)
             else:
                 break
 
         return data[-1]
 
-    def get_lowest_ranks(self, text:str, table:str) -> str:
+    def get_lowest_ranks(self, text:str, table:str):
         """Get the lowest rank for each skill.
 
         Args:
@@ -318,6 +340,11 @@ class HiscoreCounts(Task):
             self._log.info('Minimum level of %s: %s.', skill, lvl)
             self._log.info('Entry rank for %s: %s.', skill, rank)
 
+        # update updated time
+        updated = re.search(rgx_count % 'updated', table).group(1)
+        table = table.replace(updated, self._updated)
+
+        # update text
         text = text.replace(old_table, table)
         self._log.info('lowest_ranks subtask complete.')
         return text

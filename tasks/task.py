@@ -1,6 +1,5 @@
 # ----------------------------------------------------------------------
 # Copyright (c) 2015 Matthew Dowdell <mdowdell244@gmail.com>.
-#
 # This file is part of Cresbot.
 #
 # Cresbot is free software: you can redistribute it and/or modify
@@ -17,9 +16,35 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
-class Task:
-    def __init__(self):
-        pass
+import logging
 
-    def run(self):
+class Task:
+    
+    def run():
+        """Placeholder method all `Task` subclasses should implement."""
         raise NotImplementedError('"run" method not implemented')
+
+    def set_log(self, name:str='UnknownTask', level:str='DEBUG'):
+        """Create a Logger instance.
+
+        Args:
+            name:
+            level:
+        """
+        log = logging.getLogger(name)
+        log.setLevel(level)
+
+        # set handlers and formatter
+        # @todo reate wikitext log for pasting to the wiki
+        fh = logging.FileHandler('logs/tasks.log')
+        sh = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                      '%Y-%m-%d %H:%M:%S')
+        fh.setFormatter(formatter)
+        sh.setFormatter(formatter)
+
+        # add handlers
+        log.addHandler(fh)
+        log.addHandler(sh)
+        
+        self._log = log

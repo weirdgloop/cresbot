@@ -49,7 +49,7 @@ class Api:
             more_params: Parameters to send to the API.
         """
         # merge in more_params
-        for k, v in more_params:
+        for k, v in more_params.items():
             params[k] = v
 
         # test for GET request
@@ -80,11 +80,11 @@ class Api:
             'lgpassword': password
         }
         
-        login = self.call(**params)
+        login = self.call(params)
 
         # extract token and send back
         params['lgtoken'] = login['login']['token']
-        confirm = self.call(**params)
+        confirm = self.call(params)
 
         if confirm['login']['result'] == 'Success':
             return True

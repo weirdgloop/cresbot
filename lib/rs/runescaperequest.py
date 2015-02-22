@@ -67,7 +67,7 @@ class RuneScapeRequest():
             diff = time() - self._last
             
             if diff < self._throttle:
-                sleep(diff)
+                sleep(self._throttle - diff)
 
         ret = self._request.get(self._url, params=params)
         self._last = time()

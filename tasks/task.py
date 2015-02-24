@@ -16,35 +16,26 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
-import logging
+from cresbot.logging import create_log
 
 class Task:
-    
-    def run():
+    def __init__(self):
         """Placeholder method all `Task` subclasses should implement."""
-        raise NotImplementedError('"run" method not implemented')
+        raise NotImplementedError('"__init__" method not implemented.')
+    
+    def run(self):
+        """Placeholder method all `Task` subclasses should implement."""
+        raise NotImplementedError('"run" method not implemented.')
 
-    def set_log(self, name:str='UnknownTask', level:str='DEBUG'):
-        """Create a Logger instance.
+    def create_log(self, name:str='UnknownTask'):
+        """A wrapper for `cresbot.logging.create_log` for easy creation of
+        task logs.
 
         Args:
-            name:
-            level:
+            name: A string represennting the task name.
+
+        Returns:
+            An instance of `logging.Logger` with file and stream handlers.
         """
-        log = logging.getLogger(name)
-        log.setLevel(level)
-
-        # set handlers and formatter
-        # @todo reate wikitext log for pasting to the wiki
-        fh = logging.FileHandler('logs/tasks.log')
-        sh = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                                      '%Y-%m-%d %H:%M:%S')
-        fh.setFormatter(formatter)
-        sh.setFormatter(formatter)
-
-        # add handlers
-        log.addHandler(fh)
-        log.addHandler(sh)
-        
-        self._log = log
+        log = create_log('tasks.log', name)
+        return log

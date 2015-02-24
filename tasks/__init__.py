@@ -16,17 +16,16 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
-from platform import python_version as pyv
+from cresbot.tasks.hiscorecounts import HiscoreCounts
 
-__author__ = 'Matthew Dowdell'
-__email__ = 'mdowdell244@gmail.com'
-__version__ = '0.0.1'
-__url__ = 'https://github.com/onei/cresbot'
+# list of task instances to run
+# @todo load this from a config somewhere
+tasks = [
+    HiscoreCounts
+]
 
-USER_AGENT = 'Cresbot/%s (Python %s; %s; mailto:%s)'
-USER_AGENT %= __version__, pyv(), __url__, __email__
-
-STREAM_LOG_LEVEL = 'INFO'
-FILE_LOG_LEVEL = 'DEBUG'
-# @todo 'WARNING' instead?
-WIKI_LOG_LEVEL = 'INFO'
+for task in tasks:
+    t = task()
+    t.run()
+    
+    

@@ -55,7 +55,8 @@ class HiscoreCounts(Task):
     _params = {'category_type': 0, 'table': 0, 'page': 0}
 
     def __init__(self):
-        self.set_log('HiscoreCounts')
+        """Set up the HiscoreCounts task class."""
+        self._log = self.create_log('HiscoreCounts')
         self._updated = datetime.now().strftime('%d %B %Y').lstrip('0')
         self._mwapi = Api('http://runescape.wikia.com')
         self._mwapi.login('Cresbot', login('Cresbot'))
@@ -63,7 +64,7 @@ class HiscoreCounts(Task):
                             12)
 
     def run(self):
-        """Run hiscore counts task"""
+        """Run hiscore counts task."""
         self._log.info('Starting HiscoreCounts task.')
         
         self._log.info('Getting current counts text.')
@@ -348,7 +349,3 @@ class HiscoreCounts(Task):
         text = text.replace(old_table, table)
         self._log.info('lowest_ranks subtask complete.')
         return text
-
-
-t = HiscoreCounts()
-t.run()

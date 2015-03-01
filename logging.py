@@ -19,37 +19,36 @@
 import os
 import logging
 
-import cresbot
-
-def create_log(file:str, name:str):
+def get_logger(config:dict, name:str):
     """Create an instance of `Logger`.
 
     Args:
-        file: A string representing name of the log file.
+        config: A dict containing configuration settings.
         name: A string representing the name of the script submitting to
             the log.
 
     Returns:
         An instance of Logger with file and stream handlers.
     """
-    abspath = os.path.abspath(__file__)
-    fpath = os.path.join(os.path.dirname(abspath), 'logs', file)
 
     log = logging.getLogger(name)
+    # required to set default level or nothing is output
     log.setLevel('DEBUG')
-
-    fh = logging.FileHandler(fpath)
-    sh = logging.StreamHandler()
-
-    fh.setLevel(cresbot.FILE_LOG_LEVEL)
-    sh.setLevel(cresbot.STREAM_LOG_LEVEL)
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                                   '%Y-%m-%d %H:%M:%S')
-    fh.setFormatter(formatter)
-    sh.setFormatter(formatter)
 
-    log.addHandler(fh)
+    if config['log_file'] is not None:
+        fh = logging.FileHandler(config['log_file'])
+        fh.setLevel(config['log_level_file'])
+        fh.setFormatter(formatter)
+        log.addHandler(fh)
+
+    # @todo implement email logging for errors
+
+    sh = logging.StreamHandler()
+    sh.setLevel(config['log_level_stream'])
+    sh.setFormatter(formatter)
     log.addHandler(sh)
 
     return log

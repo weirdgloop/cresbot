@@ -16,16 +16,28 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
-from cresbot.tasks.hiscorecounts import HiscoreCounts
+from .hiscorecounts import HiscoreCounts
 
-# list of task instances to run
-# @todo load this from a config somewhere
-tasks = [
-    HiscoreCounts
-]
+# stored as a dict so specific tasks can be run if desired
+taskdict = {
+    'hiscorecounts': HiscoreCounts
+}
 
-for task in tasks:
-    t = task()
-    t.run()
+def run_tasks(config):
+    """Run tasks.
+
+    Args:
+        config:
+    """
+    tasks = []
+
+    if config.tasks is True:
+        tasks = taskdict.values()
+    elif isinstance(config.tasks, list):
+        tasks = config.tasks
+
+    for task in tasks:
+        t = task(config)
+        t.run()
     
     

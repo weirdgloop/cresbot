@@ -17,143 +17,168 @@
 # ----------------------------------------------------------------------
 
 import re
+import sys
 import math
-from datetime import datetime
 from copy import copy
-from itertools import filterfalse
 from time import time, sleep
+from datetime import datetime
 
+import requests
+from ceterach.api import MediaWiki
+from ceterach import exceptions as exc
 from bs4 import BeautifulSoup, NavigableString as nstr
 
-from cresbot.tasks.task import Task
-from cresbot.login import login
-from cresbot.lib.mw import Api
-from cresbot.lib.rs.runescaperequest import RuneScapeRequest as RsReq
+from ..logging import get_logger
 
-class HiscoreCounts(Task):
+__all__ = ['HiscoreCounts']
 
-    _XP_120 = 104273167
-    _XP_99 = 13034431
-    _XP_MAX = 200000000
-    _LVL_99 = 99
-    _LVL_MAX = 2595
+# minmum xp required for certain lvels
+XP_99 = 13034431
+XP_120 = 104273167
+XP_MAX = 200000000
 
-    _LVL = 2
-    _XP = 3
+# current list of skills
+SKILLS = ['overall', 'attack', 'defence', 'strength', 'constitution',
+          'ranged', 'prayer', 'magic', 'cooking', 'woodcutting',
+          'fletching', 'fishing', 'firemaking', 'crafting', 'smithing',
+          'mining', 'herblore', 'agility', 'thieving', 'slayer',
+          'farming', 'runecrafting', 'hunter', 'construction',
+          'summoning', 'dungeoneering', 'divination']
 
-    _updated = None
-    _mwapi = None
-    _rsrequest = None
+class HiscoreCounts:
 
-    _skills = ['overall', 'attack', 'defence', 'strength', 'constitution',
-               'ranged', 'prayer', 'magic', 'cooking', 'woodcutting',
-               'fletching', 'fishing', 'firemaking', 'crafting', 'smithing',
-               'mining', 'herblore', 'agility', 'thieving', 'slayer',
-               'farming', 'runecrafting', 'hunter', 'construction',
-               'summoning', 'dungeoneering', 'divination']
+    # placeholder date string for updating 'updated' value in each count table
+    updated = None
 
-    _params = {'category_type': 0, 'table': 0, 'page': 0}
+    # placeholder `Api` instance
+    api = None
 
-    def __init__(self):
+    # default params for requesting hiscore pages
+    def_params = {'category_type': 0, 'table': 0, 'page': 0}
+
+    # placeholder pattern for getting the values in a lua table
+    re_count = '(?:\[[\'"])?%s(?:[\'"]\])?\s*=\s*[\'"](.*?)[\'"]\s*,?'
+
+    # config for making requests to runescape api
+    url = 'http://services.runescape.com/m=hiscore/ranking'
+    last = None
+    throttle = 12
+
+    # placeholders used for logging rate limiting
+    num_reqs = 0
+    err_time = None
+
+    def __init__(self, config:dict, throttle:int):
         """Set up the HiscoreCounts task class."""
-        self._log = self.create_log('HiscoreCounts')
-        self._updated = datetime.now().strftime('%d %B %Y').lstrip('0')
-        self._mwapi = Api('http://runescape.wikia.com')
-        self._mwapi.login('Cresbot', login('Cresbot'))
-        self._rsreq = RsReq('http://services.runescape.com/m=hiscore/ranking',
-                            12)
+        # setup logging
+        self.log = get_logger(config, __file__)
+
+        # setup api instance
+        self.api = MediaWiki(api_url, api_config)
+        self.api.login('Cresbot', login('Cresbot'))
+        
+        # set updated date string
+        self.updated = datetime.now().strftime('%d %B %Y').lstrip('0')
+
+        # set throttle, currently defaults to 12 seconds
+        self.throttle = throttle or self.throttle
+
+    def _get_page(self, params:dict):
+        """@todo docs"""
+        # throttle requests
+        if self.last is not None:
+            diff = time() - self.last
+
+            if diff < self.throttle:
+                sleep(self.throttle - diff)
+
+        # normalise any exceptions
+        try:
+            resp = requests.get(self.url, params=params)
+        except (requests.HTTPError, requests.ConnectionError) as e:
+            raise CresbotError(e)
+            
+        self.num_reqs += 1
+        self.last = time()
+
+        soup = BeautifulSoup(resp.text)
+        errors = soup.select('#errorContent')
+
+        # handle ratelimit
+        if len(errors):
+            self.log.warning('Rate limit hit after %s pages.')
+            
+            if self.err_time is not None:
+                diff = time() - self.err_time
+                self.log.warning('Time since rate limit was last hit: %s.',
+                                 diff)
+                
+            self.err_time = time()
+            sleep(30)
+            return self._get_page(params)
+        
+        return soup
 
     def run(self):
         """Run hiscore counts task."""
-        self._log.info('Starting HiscoreCounts task.')
-        
-        self._log.info('Getting current counts text.')
-        # @todo write something to do self._mwapi.page('PAGENAME').text()
-        text = self.get_text('Module:Hiscore counts')
+        self.log.info('Starting HiscoreCounts task.')
 
-        text = self.get_count(text, 'count_99s', self._LVL, self._LVL_99)
-        text = self.get_count(text, 'count_120s', self._XP, self._XP_120)
-        text = self.get_count(text, 'count_200mxp', self._XP, self._XP_MAX)
-        text = self.get_lowest_ranks(text, 'lowest_ranks')
+        try:
+            self.log.info('Getting current counts text.')
+            page = self.api.page('Module:Hiscore counts')
+            text = page.content
+        except (exc.ApiError, exc.CeterachError) as e:
+            self.log.error('Current counts text count not be found.')
+            self.log.error(e)
+        else:
+            text = self.get_count(text, 'count_99s', 99, 2)
+            text = self.get_count(text, 'count_120s', XP_120, 3)
+            text = self.get_count(text, 'count_200mxp', XP_MAX, 3)
+            text = self.get_lowest_ranks(text, 'lowest_ranks')
+            self.log.info(text)
 
-        # @todo update page with new text
-        # get token
-        # self._mwapi.call(
-        # send updated text
-        # self._mwapi.call(action='edit', ...)
+            try:
+                page.edit(text, 'Updating hiscore counts', bot=True)
+            except:
+                print('...')
+            else:
+                self.log.info('HiscoreCounts task complete.')
 
-        self._log.info('HiscoreCounts task complete.')
-
-    def get_text(self, title:str):
-        """Get the text of a wiki page.
-
-        Args:
-            title:
-
-        Returns:
-            A string...
-        """
-        params = {
-            'action': 'query',
-            'prop': 'revisions',
-            'rvprop': 'content',
-            'titles': title
-        }
-
-        resp = self._mwapi.call(params)
-        resp = resp['query']['pages']
-        text = resp[tuple(resp.keys())[0]]['revisions'][0]['*']
-
-        return text
-
-    def update_text(self, title:str, text:str):
-        """Alter the text of a wiki page.
-
-        Args:
-            title:
-            text:
-
-        Returns:
-            ???
-        """
-        print('updating...')
-
-    def get_count(self, text:str, count:str, val_type:int, value:int):
+    def get_count(self, text:str, count:str, value:int, val_type:str):
         """Update the specified count.
 
         Args:
             text: A string containing the current counts as a lua table.
             count: The count to update.
             val_type: The type of value to look for, either `self._XP` or
-                `self._LVL`.
+                `self._LVL`. @todo allow strings that map to ints
             value: The minimum value to look for when updating the count.
                 Varies depending on the value of `count`.
 
         Returns:
             A string with the updated counts replacing the old counts.
         """
-        params = copy(self._params)
+        # @todo if we encounter an error further down the line
+        #       all gathered data will be lost
+        #       possibly save the data into a dict so it can be salvaged if required
+        params = copy(self.def_params)
         rgx_table = 'local\s*%s\s*=\s*{(.*?)}' % count
-        rgx_count = '(?:\[[\'"])?%s(?:[\'"]\])?\s*=\s*[\'"](.*?)[\'"]\s*,?'
         r_table = re.search(rgx_table, text, flags=re.S)
-        # these are purposefully the same
-        # they're used to update `text` below
         old_table = r_table.group(1).strip()
         table = r_table.group(1).strip()
 
-        for i, skill in enumerate(self._skills):
+        for i, skill in enumerate(SKILLS):
             if skill == 'overall':
                 # don't run overall for some counts
                 if count in ['count_99s', 'count_120s']:
                     continue
 
-                val = value * (len(self._skills) - 1)
+                self.log.info('Getting %s data for %s', value, skill)
+                value *= (len(SKILLS) - 1)
             else:
-                val = value
-
-            self._log.info('Getting %s data for %s', value, skill)
+                self.log.info('Getting %s data for %s', value, skill)
             
-            r_count = rgx_count % skill
+            r_count = self.re_count % skill
             cur_count = re.search(r_count, table)
 
             repl = cur_count.group(0)
@@ -166,24 +191,33 @@ class HiscoreCounts(Task):
             if start_page == 0:
                 start_page = 1
 
-            params.update({'table': i, 'page': start_page})
-            new_count = self._get_counts(params, val_type, val)
-            self._log.info('Number of players with requested value in %s: %s.',
-                           skill, new_count)
-            repl2 = repl.replace(num, new_count)
+            # make sure start_page is always >=1
+            # happens when existing count is <25 (first page)
+            # @todo should we be doing start_page += 1?
+            params.update({'table': i, 'page': max(start_page, 1)})
 
-            table = table.replace(repl, repl2)
+            # if something goes wrong here
+            # we skip updating that count, log the error
+            # and move onto the next
+            #try:
+            new_count = self.find_value(params, val_type, value)
+            #except:
+                # @todo
+            #print('un-implemented error handling')
+            #else:
+            self.log.info('Number of players with requested value in %s: %s.',
+                               skill, new_count)
+            table = self.update_count(table, skill, new_count)
 
         # update updated time
-        updated = re.search(rgx_count % 'updated', table).group(1)
-        table = table.replace(updated, self._updated)
+        table = self.update_count(table, 'updated', self.updated)
 
         # update text
         text = text.replace(old_table, table)
-        self._log.info('%s subtask complete.', count)
+        self.log.info('%s subtask complete.', count)
         return text
 
-    def _get_counts(self, params:dict, col:int, value:int, checked:list=[],times:int=0):
+    def find_value(self, params:dict, col:int, value:int, checked:list=None):
         """Scrape the requested hiscores page looking for the last occurance
         of `value`.
 
@@ -202,37 +236,29 @@ class HiscoreCounts(Task):
         Notes:
            This is an internal method and should not be called directly.
         """
-        resp = self._rsreq.get(params)
-        soup = BeautifulSoup(resp.text)
-        rows = soup.select('div.tableWrap tbody tr')
+        if checked is None:
+            checked = []
+
+        soup = self._get_page(params)
+        rows = (x for x in soup.select('div.tableWrap tbody tr') \
+                if not isinstance(x, nstr))
         trs = []
 
-        for tr in filterfalse(lambda x: isinstance(x, nstr), rows):
-            tds = []
-            for td in filterfalse(lambda x: isinstance(x, nstr), tr.contents):
-                tds.append(td)
-
-            trs.append(tds)
-
-        if len(trs) == 0:
-            self._log.warning('Rate limit hit after %s pages on %s',
-                              len(checked), self._skills[params['table']])
-            sleep(30)
-            return self._get_counts(params, col, value, checked)
+        for tr in rows:
+            tds = (x for x in tr.contents if not isinstance(x, nstr))
+            trs.append(tuple(tds))
 
         # check if the last value on the page is `value`
         # if so jump to the next page
-        last_val = trs[-1][col].a.string \
-                   .strip() \
-                   .replace(',', '')
+        last_val = trs[-1][col].a.string.strip().replace(',', '')
         
         if int(last_val) >= value:
             # track which pages have already been visited
             checked.append(params['page'])
             params['page'] += 1
-            self._log.debug('Requested value found in last row, moving to next page (%s).',
+            self.log.debug('Requested value found in last row, moving to next page (%s).',
                             params['page'])
-            return self._get_counts(params, col, value, checked)
+            return self.find_value(params, col, value, checked)
 
         # check if the first value if less than `value`
         # if so jump to the previous page
@@ -248,17 +274,16 @@ class HiscoreCounts(Task):
             # check if the previous page has already been visited
             # to stop an infinite loop
             if (params['page'] - 1) in checked:
-                rank = trs[0][0].a.string \
-                       .strip()
+                rank = trs[0][0].a.string.strip()
 
                 return rank
 
             # track which pages have already been visited
             checked.append(params['page'])
             params['page'] -= 1
-            self._log.debug('Requested value not found, moving to previous page (%s).',
+            self.log.debug('Requested value not found, moving to previous page (%s).',
                             params['page'])
-            return self._get_counts(params, col, value, checked)
+            return self.find_value(params, col, value, checked)
 
         # we should be on the correct page, so check every value
         # until one is found that matches `value`
@@ -294,58 +319,61 @@ class HiscoreCounts(Task):
         table = r_table.group(1).strip()
         old_table = r_table.group(1).strip()
 
-        for i, skill in enumerate(self._skills):
-            self._log.info('Getting lowest rank data for %s.', skill)
+        for i, skill in enumerate(SKILLS):
+            self.log.info('Getting lowest rank data for %s.', skill)
 
             # load the first page and look for a link to the last page
-            self._log.debug('Getting first page.')
-            params = copy(self._params)
+            self.log.debug('Getting first page.')
+            params = copy(self.def_params)
             params.update({'table': i, 'page': 1})
-            resp = self._rsreq.get(params)
-            soup = BeautifulSoup(resp.text)
+            soup = self._get_page(params)
+            # should be 7 keys here
             page = soup.select('.pageNumbers li a')[-1].string
 
             # load the page and get the last row of the hiscores table
-            self._log.debug('Getting last page.')
+            self.log.debug('Getting last page.')
             params.update({'page': page})
-            resp = self._rsreq.get(params)
-            soup = BeautifulSoup(resp.text)
-            last = soup.select('div.tableWrap tbody tr')[-1]
+            soup = self._get_page(params)
+            cells = tuple(x for x in soup.select('div.tableWrap tbody tr') \
+                          [-1].contents if not isinstance(x, nstr))
 
-            # select the columns we need
-            i = 0
-            for td in filterfalse(lambda x: isinstance(x, nstr), last.contents):
-                i += 1
+            rank = cells[0].a.string.strip()
+            lvl = cells[2].a.string.strip()
 
-                if i == 1:
-                    rank = td.a.string \
-                           .strip()
-                elif i == 3:
-                    lvl = td.a.string \
-                          .strip()
+            # update table
+            table = self.update_count(table, skill + '.rank', rank)
+            table = self.update_count(table, skill, lvl)
 
-            # update rank
-            rgx_rank = rgx_count % (skill + '.rank')
-            r_rank = re.search(rgx_rank, table)
-            old_rank = r_rank.group(0)
-            new_rank = old_rank.replace(r_rank.group(1), rank)
-            table = table.replace(old_rank, new_rank)
-
-            # update level
-            rgx_lvl = rgx_count % skill
-            r_lvl = re.search(rgx_lvl, table)
-            old_lvl = r_lvl.group(0)
-            new_lvl = old_lvl.replace(r_lvl.group(1), lvl)
-            table = table.replace(old_lvl, new_lvl)
-
-            self._log.info('Minimum level of %s: %s.', skill, lvl)
-            self._log.info('Entry rank for %s: %s.', skill, rank)
+            self.log.info('Minimum level of %s: %s.', skill, lvl)
+            self.log.info('Entry rank for %s: %s.', skill, rank)
 
         # update updated time
-        updated = re.search(rgx_count % 'updated', table).group(1)
-        table = table.replace(updated, self._updated)
+        table = self.update_count(table, 'updated', self.updated)
 
         # update text
         text = text.replace(old_table, table)
-        self._log.info('lowest_ranks subtask complete.')
+        self.log.info('lowest_ranks subtask complete.')
         return text
+
+    def update_count(self, text:str, key:str, val:str):
+        """Update the value of a key in a lua table.
+
+        Args:
+            text:
+            key:
+            val:
+
+        Returns:
+            A string...
+        """
+        rgx = self.re_count % key
+        match = re.search(rgx, text)
+        # should we handle exceptions caused by the key not existing?
+        old = match.group(0)
+        new = old.replace(match.group(1), val)
+        ret = text.replace(old, new)
+        
+        return ret
+
+#t = HiscoreCounts()
+#t.run()

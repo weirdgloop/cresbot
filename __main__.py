@@ -22,7 +22,7 @@ from ceterach.api import MediaWiki
 
 from .config import get_config
 from .tasks import run_tasks
-from .logging import get_logger
+from .log import get_logger
 
 # $ python -m cresbot [-v] [-t:task1,task2,...,taskn] [-l[:path/to/log/file]] [-p:password]
 
@@ -38,25 +38,31 @@ def setup(config:dict=None):
     # setup ceterach api instance
     api = MediaWiki(config['api_url'], config['api_config'])
 
-    while True:
-        if config['api_password'] is None:
-            prompt = 'Enter password for %s: ' % config['api_username']
+    # limit to 3 tries
+    for i in range(0, 3):
+        if config.get('api_password', None) is None:
+            prompt = 'Enter password for %s: ' % config.get['api_username']
             config.update({'api_password': input(prompt).strip()})
 
         logged_in = api.login(config['api_username'], config['api_password'])
 
         if logged_in is False:
-            log.info('Incorrect password for %s. Please try again.', config['api_username'])
-            # reset back to `None` to stop infinite loop
-            config.update({'api_password': None})
+            if i < 3:
+                log.info('Incorrect password for %s. Please try again.', config['api_username'])
+                # reset back to `None` to stop infinite loop
+                config.update({'api_password': None})
+            else:
+                log.warning('Number of login attempts exceeded. Exiting.')
         else:
             break
+
+    config['api'] = api
 
     log.info('Setup complete')
 
     try:
         run_tasks(config)
-    # @todo change to `CresbotException` and allow error to bubble up to
+    # @todo change to `CresbotError` and allow error to bubble up to
     #       `setup` call as it's an indication of the code needing fixing somewhere
     except Exception as e:
         log.error('Uncaught exception: %s', e)

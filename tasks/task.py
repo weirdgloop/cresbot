@@ -16,26 +16,26 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
-from cresbot.logging import create_log
+from abc import ABCMeta, abstractmethod
 
+from ..log import get_logger
+
+# @todo use `abc`
 class Task:
-    def __init__(self):
-        """Placeholder method all `Task` subclasses should implement."""
-        raise NotImplementedError('"__init__" method not implemented.')
-    
+    """Abstract class for tasks."""
+
+    __metaclass__ = ABCMeta
+
+    log = None
+    api = None
+
+    @abstractmethod
+    def __init__(self, config:dict, filepath:str):
+        """<docs>"""
+        self.log = get_logger(config, filepath)
+        self.api = config['api']
+
+    @abstractmethod
     def run(self):
-        """Placeholder method all `Task` subclasses should implement."""
-        raise NotImplementedError('"run" method not implemented.')
-
-    def create_log(self, name:str='UnknownTask'):
-        """A wrapper for `cresbot.logging.create_log` for easy creation of
-        task logs.
-
-        Args:
-            name: A string represennting the task name.
-
-        Returns:
-            An instance of `logging.Logger` with file and stream handlers.
-        """
-        log = create_log('tasks.log', name)
-        return log
+        """Run the task."""
+        pass

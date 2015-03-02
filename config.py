@@ -27,13 +27,13 @@ _config = {
     'api_config': {'defaults': {'maxlag': 5}},
     'api_username': 'Cresbot',
     'api_password': None,
-    'api_Api': None,
+    'api': None,
 
     # cresbot.logging config
     # stream log level will be changed to 'DEBUG' during test mode
     # file and email logging is disabled during test mode
     # 'log_file': '/var/log/cresbot.log',
-    'log_file': None
+    'log_file': None,
     'log_level_stream': 'INFO',
     'log_level_file': 'DEBUG',
     # @todo implement

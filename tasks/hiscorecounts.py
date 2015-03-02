@@ -25,14 +25,15 @@ from datetime import datetime
 
 import requests
 from ceterach.api import MediaWiki
-from ceterach import exceptions as exc
+from ceterach import exceptions as cetexc
 from bs4 import BeautifulSoup, NavigableString as nstr
 
-from ..logging import get_logger
+from .task import Task
+from .. import exceptions as crexc
 
 __all__ = ['HiscoreCounts']
 
-# minmum xp required for certain lvels
+# minimum xp required for certain lvels
 XP_99 = 13034431
 XP_120 = 104273167
 XP_MAX = 200000000
@@ -45,13 +46,10 @@ SKILLS = ['overall', 'attack', 'defence', 'strength', 'constitution',
           'farming', 'runecrafting', 'hunter', 'construction',
           'summoning', 'dungeoneering', 'divination']
 
-class HiscoreCounts:
+class HiscoreCounts(Task):
 
     # placeholder date string for updating 'updated' value in each count table
     updated = None
-
-    # placeholder `Api` instance
-    api = None
 
     # default params for requesting hiscore pages
     def_params = {'category_type': 0, 'table': 0, 'page': 0}
@@ -62,29 +60,34 @@ class HiscoreCounts:
     # config for making requests to runescape api
     url = 'http://services.runescape.com/m=hiscore/ranking'
     last = None
+    # reducing this and making large amounts of HTTP requests to runescape.com
+    # can cause the used IP to be (temporarily?) blacklisted
     throttle = 12
 
     # placeholders used for logging rate limiting
     num_reqs = 0
     err_time = None
 
-    def __init__(self, config:dict, throttle:int):
+    def __init__(self, config:dict):
         """Set up the HiscoreCounts task class."""
-        # setup logging
-        self.log = get_logger(config, __file__)
-
-        # setup api instance
-        self.api = MediaWiki(api_url, api_config)
-        self.api.login('Cresbot', login('Cresbot'))
+        super().__init__(config, __file__)
         
         # set updated date string
         self.updated = datetime.now().strftime('%d %B %Y').lstrip('0')
 
-        # set throttle, currently defaults to 12 seconds
-        self.throttle = throttle or self.throttle
-
     def _get_page(self, params:dict):
-        """@todo docs"""
+        """Get the content of a RuneScape Hiscores page.
+
+        Args:
+            params: A dict containing the parameters to send to the hiscores URL.
+
+        Returns:
+            An instance of BeautifulSoup containing the parsed hiscores table.
+
+        Raises:
+            CresbotError:
+        """
+        # @todo split this out into an external library?
         # throttle requests
         if self.last is not None:
             diff = time() - self.last
@@ -96,7 +99,7 @@ class HiscoreCounts:
         try:
             resp = requests.get(self.url, params=params)
         except (requests.HTTPError, requests.ConnectionError) as e:
-            raise CresbotError(e)
+            raise crexc.CresbotError(e)
             
         self.num_reqs += 1
         self.last = time()
@@ -121,28 +124,28 @@ class HiscoreCounts:
 
     def run(self):
         """Run hiscore counts task."""
-        self.log.info('Starting HiscoreCounts task.')
-
         try:
             self.log.info('Getting current counts text.')
             page = self.api.page('Module:Hiscore counts')
             text = page.content
-        except (exc.ApiError, exc.CeterachError) as e:
-            self.log.error('Current counts text count not be found.')
-            self.log.error(e)
-        else:
-            text = self.get_count(text, 'count_99s', 99, 2)
-            text = self.get_count(text, 'count_120s', XP_120, 3)
-            text = self.get_count(text, 'count_200mxp', XP_MAX, 3)
-            text = self.get_lowest_ranks(text, 'lowest_ranks')
-            self.log.info(text)
+        # @todo handle these separately?
+        except (cetexc.ApiError, cetexc.CeterachError) as e:
+            self.log.error('Current counts text count not be found. Error: %s', e)
+            raise crexc.CresbotError(e)
+        
+        # @todo error handling?
+        text = self.get_count(text, 'count_99s', 99, 2)
+        text = self.get_count(text, 'count_120s', XP_120, 3)
+        text = self.get_count(text, 'count_200mxp', XP_MAX, 3)
+        text = self.get_lowest_ranks(text, 'lowest_ranks')
 
-            try:
-                page.edit(text, 'Updating hiscore counts', bot=True)
-            except:
-                print('...')
-            else:
-                self.log.info('HiscoreCounts task complete.')
+        try:
+            page.edit(text, 'Updating hiscore counts', bot=True)
+        # @todo handle other errors?
+        except cetexc.EditError as e:
+            self.log.error('Could not update hiscore counts. Error: %s', e)
+            self.log.error(text)
+            raise crexc.CresbotError(e)
 
     def get_count(self, text:str, count:str, value:int, val_type:str):
         """Update the specified count.
@@ -158,9 +161,8 @@ class HiscoreCounts:
         Returns:
             A string with the updated counts replacing the old counts.
         """
-        # @todo if we encounter an error further down the line
-        #       all gathered data will be lost
-        #       possibly save the data into a dict so it can be salvaged if required
+        # @todo save gathered data into a dict so it can be salvaged if required
+        #       output to yaml file (readable)?
         params = copy(self.def_params)
         rgx_table = 'local\s*%s\s*=\s*{(.*?)}' % count
         r_table = re.search(rgx_table, text, flags=re.S)
@@ -174,9 +176,10 @@ class HiscoreCounts:
                     continue
 
                 self.log.info('Getting %s data for %s', value, skill)
-                value *= (len(SKILLS) - 1)
+                val = value * (len(SKILLS) - 1)
             else:
                 self.log.info('Getting %s data for %s', value, skill)
+                val = value
             
             r_count = self.re_count % skill
             cur_count = re.search(r_count, table)
@@ -200,7 +203,7 @@ class HiscoreCounts:
             # we skip updating that count, log the error
             # and move onto the next
             #try:
-            new_count = self.find_value(params, val_type, value)
+            new_count = self.find_value(params, val_type, val)
             #except:
                 # @todo
             #print('un-implemented error handling')
@@ -314,7 +317,6 @@ class HiscoreCounts:
             A string with the previous counts replaced by the new counts.
         """
         rgx_table = 'local\s*%s\s*=\s*{(.*?)}' % table
-        rgx_count = '(?:\[[\'"])?%s(?:[\'"]\])?\s*=\s*[\'"](.*?)[\'"]\s*,?'
         r_table = re.search(rgx_table, text, flags=re.S)
         table = r_table.group(1).strip()
         old_table = r_table.group(1).strip()

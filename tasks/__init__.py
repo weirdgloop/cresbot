@@ -17,6 +17,8 @@
 # ----------------------------------------------------------------------
 
 from .hiscorecounts import HiscoreCounts
+from ..log import get_logger
+from .. import exceptions as exc
 
 # stored as a dict so specific tasks can be run if desired
 taskdict = {
@@ -29,15 +31,26 @@ def run_tasks(config):
     Args:
         config:
     """
+    log = get_logger(config, __file__)
     tasks = []
 
-    if config.tasks is True:
+    if config['tasks'] is True:
         tasks = taskdict.values()
-    elif isinstance(config.tasks, list):
-        tasks = config.tasks
+    elif isinstance(config['tasks'], list):
+        tasks = config['tasks']
 
+    # @todo figure out how to run this on startup (allow disabling on startup)
+    #       and then every day at 00:00 UTC
+    #       will require running tasks in a separate thread to allow other process to work
+    #       allow other threads to check what's going on during task run(s)
     for task in tasks:
-        t = task(config)
-        t.run()
+        try:
+            log.info('Starting %s task.', task.__name__)
+            t = task(config)
+            t.run()
+            log.info('%s task finished.', task.__name__)
+        except exc.CresbotError as e:
+            log.error(e)
+
     
     

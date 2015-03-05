@@ -29,7 +29,7 @@ def run_tasks(config):
     """Run tasks.
 
     Args:
-        config:
+        config: A dict containing the configuration options.
     """
     log = get_logger(config, __file__)
     tasks = []
@@ -50,7 +50,7 @@ def run_tasks(config):
             t.run()
             log.info('%s task finished.', task.__name__)
         except exc.CresbotError as e:
-            log.error(e)
+            log.exception(e)
 
     
     

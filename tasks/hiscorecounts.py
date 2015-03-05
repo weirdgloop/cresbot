@@ -68,8 +68,12 @@ class HiscoreCounts(Task):
     num_reqs = 0
     err_time = None
 
+    # storage for saving the updated counts in case of being unable to update the page
+    # once all data has been gathered
+    new_counts = {}
+
     def __init__(self, config:dict):
-        """Set up the HiscoreCounts task class."""
+        """Set up the HiscoreCounts task."""
         super().__init__(config, __file__)
         
         # set updated date string
@@ -131,12 +135,13 @@ class HiscoreCounts(Task):
         # @todo handle these separately?
         except (cetexc.ApiError, cetexc.CeterachError) as e:
             self.log.error('Current counts text count not be found. Error: %s', e)
+            # @todo implement fallback if reasonable
             raise crexc.CresbotError(e)
         
         # @todo error handling?
-        text = self.get_count(text, 'count_99s', 99, 2)
-        text = self.get_count(text, 'count_120s', XP_120, 3)
-        text = self.get_count(text, 'count_200mxp', XP_MAX, 3)
+        text = self.get_count(text, 'count_99s', 99, 'LEVEL')
+        text = self.get_count(text, 'count_120s', XP_120, 'XP')
+        text = self.get_count(text, 'count_200mxp', XP_MAX, 'XP')
         text = self.get_lowest_ranks(text, 'lowest_ranks')
 
         try:
@@ -148,19 +153,22 @@ class HiscoreCounts(Task):
             raise crexc.CresbotError(e)
 
     def get_count(self, text:str, count:str, value:int, val_type:str):
-        """Update the specified count.
+        """Look for the last occurance of `value` in each hiscores table and update `text` with it.
 
         Args:
-            text: A string containing the current counts as a lua table.
-            count: The count to update.
-            val_type: The type of value to look for, either `self._XP` or
-                `self._LVL`. @todo allow strings that map to ints
-            value: The minimum value to look for when updating the count.
-                Varies depending on the value of `count`.
+            text: A string containing all the current counts as a lua table.
+            count: The name of the lua table in `text` to update.
+            value: An integer representing the value to look for when updating `count`.
+            val_type: A string of 'LEVEL' or 'XP' depending on which type of data is being updated.
 
         Returns:
             A string with the updated counts replacing the old counts.
         """
+        if val_type == 'LEVEL':
+            val_type = 2
+        elif val_type == 'XP':
+            val_type = 3
+
         # @todo save gathered data into a dict so it can be salvaged if required
         #       output to yaml file (readable)?
         params = copy(self.def_params)
@@ -168,6 +176,9 @@ class HiscoreCounts(Task):
         r_table = re.search(rgx_table, text, flags=re.S)
         old_table = r_table.group(1).strip()
         table = r_table.group(1).strip()
+
+        # @todo move count storage to self.update_count
+        self.new_counts[count] = {}
 
         for i, skill in enumerate(SKILLS):
             if skill == 'overall':
@@ -190,13 +201,9 @@ class HiscoreCounts(Task):
             # 25 ranks per page
             start_page = math.floor(int(num.replace(',', '')) / 25)
 
-            # catch for 200mxp overall
-            if start_page == 0:
-                start_page = 1
-
             # make sure start_page is always >=1
             # happens when existing count is <25 (first page)
-            # @todo should we be doing start_page += 1?
+            # @todo should we be doing start_page += 1 anyway?
             params.update({'table': i, 'page': max(start_page, 1)})
 
             # if something goes wrong here
@@ -208,12 +215,16 @@ class HiscoreCounts(Task):
                 # @todo
             #print('un-implemented error handling')
             #else:
-            self.log.info('Number of players with requested value in %s: %s.',
-                               skill, new_count)
+            # print something we can insert into lua if required?
+            # should be handled in new_counts
+            self.log.info('[\'%s\'] = %s', skill, new_count)
+            self.new_counts[count][skill] = new_count
+
             table = self.update_count(table, skill, new_count)
 
         # update updated time
         table = self.update_count(table, 'updated', self.updated)
+        self.new_counts[count]['updated'] = self.updated
 
         # update text
         text = text.replace(old_table, table)
@@ -239,6 +250,9 @@ class HiscoreCounts(Task):
         Notes:
            This is an internal method and should not be called directly.
         """
+        # @todo implement jumping forward multiple pages
+        #       to reduce number of potential requests if the task hasn't run for a while
+        #       or if an error occured during loading the current data
         if checked is None:
             checked = []
 
@@ -259,8 +273,8 @@ class HiscoreCounts(Task):
             # track which pages have already been visited
             checked.append(params['page'])
             params['page'] += 1
-            self.log.debug('Requested value found in last row, moving to next page (%s).',
-                            params['page'])
+            self.log.debug('Value:%s found in last row, moving to next page (%s).',
+                            value, params['page'])
             return self.find_value(params, col, value, checked)
 
         # check if the first value if less than `value`
@@ -284,8 +298,8 @@ class HiscoreCounts(Task):
             # track which pages have already been visited
             checked.append(params['page'])
             params['page'] -= 1
-            self.log.debug('Requested value not found, moving to previous page (%s).',
-                            params['page'])
+            self.log.debug('Value:%s not found, moving to previous page (%s).',
+                            value, params['page'])
             return self.find_value(params, col, value, checked)
 
         # we should be on the correct page, so check every value

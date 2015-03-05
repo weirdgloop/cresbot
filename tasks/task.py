@@ -20,7 +20,6 @@ from abc import ABCMeta, abstractmethod
 
 from ..log import get_logger
 
-# @todo use `abc`
 class Task:
     """Abstract class for tasks."""
 
@@ -31,7 +30,7 @@ class Task:
 
     @abstractmethod
     def __init__(self, config:dict, filepath:str):
-        """<docs>"""
+        """Set up api and logger instances for later use."""
         self.log = get_logger(config, filepath)
         self.api = config['api']
 

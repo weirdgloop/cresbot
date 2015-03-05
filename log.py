@@ -45,6 +45,8 @@ def get_logger(config:dict, name:str):
         log.addHandler(fh)
 
     # @todo implement email logging for errors
+    # http://stackoverflow.com/a/6187851/1942596
+    # limit to top level errors
 
     sh = logging.StreamHandler()
     sh.setLevel(config['log_level_stream'])

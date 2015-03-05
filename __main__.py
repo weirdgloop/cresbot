@@ -65,7 +65,7 @@ def setup(config:dict=None):
     # @todo change to `CresbotError` and allow error to bubble up to
     #       `setup` call as it's an indication of the code needing fixing somewhere
     except Exception as e:
-        log.error('Uncaught exception: %s', e)
+        log.exception('Uncaught exception: %s', e)
 
 setup()
 

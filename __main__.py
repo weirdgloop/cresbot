@@ -23,19 +23,15 @@ from ceterach.api import MediaWiki
 from .config import get_config
 from .tasks import run_tasks
 from .log import get_logger
+from . import exceptions as exc
 
-# $ python -m cresbot [-v] [-t:task1,task2,...,taskn] [-l[:path/to/log/file]] [-p:password]
+def login(config:dict):
+    """Attempt to log in through the MediaWiki API.
 
-def setup(config:dict=None):
-    """Set up config and start tasks."""
-    # extract command line arguments and merge into config
-    args = sys.argv[1:]
-    config = get_config(args)
-
-    # setup logging
-    log = get_logger(config, __file__)
-
-    # setup ceterach api instance
+    Args:
+        config: A dict containing the configuration required for logging in.
+    """
+     # setup ceterach api instance
     api = MediaWiki(config['api_url'], config['api_config'])
 
     # limit to 3 tries
@@ -52,11 +48,25 @@ def setup(config:dict=None):
                 # reset back to `None` to stop infinite loop
                 config.update({'api_password': None})
             else:
-                log.warning('Number of login attempts exceeded. Exiting.')
+                raise exc.CresbotError('Maximum number of login attempts exceeded.')
         else:
             break
 
     config['api'] = api
+    return config
+
+def setup(config:dict=None):
+    """Set up config and start tasks."""
+    # extract command line arguments and merge into config
+    args = sys.argv[1:]
+    config = get_config(args)
+
+    # setup logging
+    log = get_logger(config, __file__)
+
+    # setup and log into mediawiki api
+    # @todo error handling?
+    config = login(config)
 
     log.info('Setup complete')
 

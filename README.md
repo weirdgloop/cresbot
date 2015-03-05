@@ -3,7 +3,7 @@ cresbot
 
 This is a MediaWiki bot written in Python, designed for use on the [RuneScape Wiki](http://runescape.wikia.com/wiki/RuneScape_Wiki).
 
-== Dependencies ==
+##Dependencies
 The following dependencies are required available from [PyPi]():
 * [Requests](https://pypi.python.org/pypi/requests)
 * [BeautifulSoup4](https://pypi.python.org/pypi/beautifulsoup4/4.3.2)
@@ -11,8 +11,9 @@ The following dependencies are required available from [PyPi]():
 The following dependencies are required, which currently need to be downloaded with git:
 * [Ceterach](https://github.com/Riamse/ceterach)
 
-== Usage ==
+##Usage
 Cresbot is designed to be started through the command line:
+
 ```$ python -m cresbot [-v] [-t:task1,task2,...,taskn] [-l[:path/to/log/file]] [-p:password]```
 
 The options are as follows:

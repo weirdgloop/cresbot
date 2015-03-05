@@ -34,6 +34,9 @@ def run_tasks(config):
     log = get_logger(config, __file__)
     tasks = []
 
+    # this is only something we wan to do for the initial run
+    # to allow for tasks being skipped due to errors
+    # afterwards we want to run all tasks all the time
     if config['tasks'] is True:
         tasks = taskdict.values()
     elif isinstance(config['tasks'], list):
@@ -51,6 +54,7 @@ def run_tasks(config):
             log.info('%s task finished.', task.__name__)
         except exc.CresbotError as e:
             log.exception(e)
+            
 
     
     

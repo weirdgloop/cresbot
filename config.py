@@ -47,7 +47,10 @@ _config = {
     #
     # altered depending on arguments passed during command line usage
     # if run in test_mode
-    'tasks': True
+    'tasks': True,
+    # whether to run all tasks on startup or to wait until the next scheduled
+    # time to run
+    'tasks_startup': False
 }
 
 def get_config(args:list):
@@ -73,12 +76,20 @@ def get_config(args:list):
             if not any('-l' in a for a in args):
                 config.update({'log_file': None})
 
-        # run specific tasks
+        # run specific tasks straight away
+        # or run all tasks straight away
         if arg.startswith('-t'):
             tasks = arg[3:]
+            tasks = tasks.split(' ')
+
+            if not len(tasks):
+                tasks = True
             # apparently sys.argv normalises -foo:bar,baz,quux
             # to -foo:bar baz quux
-            config.update({'tasks': tasks.split(' ')})
+            config.update({
+                'tasks': tasksm
+                'tasks_startup': True
+            })
 
         # (un)set log file
         if arg.startswith('-l'):

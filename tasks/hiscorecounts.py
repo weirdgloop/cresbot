@@ -74,7 +74,7 @@ class HiscoreCounts(Task):
 
     def __init__(self, config:dict):
         """Set up the HiscoreCounts task."""
-        super().__init__(config, __file__)
+        super().__init__(config, 'cresbot.tasks.hiscorecounts')
         
         # set updated date string
         self.updated = datetime.now().strftime('%d %B %Y').lstrip('0')

@@ -16,66 +16,80 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
-import sys
+import os
+from argparse import ArgumentParser
 
+import yaml
 from ceterach.api import MediaWiki
 
-from .config import get_config
-from .tasks import run_tasks
 from .log import get_logger
-from . import exceptions as exc
+from .tasks import start_tasks
+from .exceptions import CresbotError
 
-def login(config:dict):
-    """Attempt to log in through the MediaWiki API.
+# set available command line arguments
+parser = ArgumentParser(description='Start Cresbot script.', prog='python -m cresbot')
+parser.add_argument('-p',
+                    '--password',
+                    dest='api_password',
+                    help='Set the password to log into the MediaWiki API with.',
+                    metavar='password',
+                    required=True)
+parser.add_argument('-l',
+                    '--logfile',
+                    dest='log_file',
+                    help='Set the path to the log file.',
+                    metavar='/path/to/log/file')
+parser.add_argument('-t',
+                    '--tasks',
+                    choices=['all', 'hiscorecounts'],
+                    default=[],
+                    dest='tasks',
+                    help='Run specific tasks on startup',
+                    metavar='taskname',
+                    nargs='*')
 
-    Args:
-        config: A dict containing the configuration required for logging in.
-    """
-     # setup ceterach api instance
-    api = MediaWiki(config['api_url'], config['api_config'])
+# parse arguments into a dictionary
+args = parser.parse_args()
+args = vars(args)
 
-    # limit to 3 tries
-    for i in range(0, 3):
-        if config.get('api_password', None) is None:
-            prompt = 'Enter password for %s: ' % config.get['api_username']
-            config.update({'api_password': input(prompt).strip()})
+# set tasks to None if there's no specified tasks
+# defaults to a list due to `... -t` producing an empty list anyway
+if not len(args.get('tasks')):
+    # can't use `.update()` here as it won't work for None
+    # maybe delete it instead?
+    args['tasks'] = None
 
-        logged_in = api.login(config['api_username'], config['api_password'])
+# load config from file
+config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yaml')
 
-        if logged_in is False:
-            if i < 3:
-                log.info('Incorrect password for %s. Please try again.', config['api_username'])
-                # reset back to `None` to stop infinite loop
-                config.update({'api_password': None})
-            else:
-                raise exc.CresbotError('Maximum number of login attempts exceeded.')
-        else:
-            break
+# check file exists first
+if not os.path.isfile(config_path):
+    raise CresbotError('Config fle could not be found. Path: %s' % config_path)
 
-    config['api'] = api
-    return config
+with open(config_path) as f:
+    config = yaml.load(f)
+    # merge args into config
+    config.update(args)
 
-def setup(config:dict=None):
-    """Set up config and start tasks."""
-    # extract command line arguments and merge into config
-    args = sys.argv[1:]
-    config = get_config(args)
+# setup logging
+log = get_logger(config, 'cresbot')
 
-    # setup logging
-    log = get_logger(config, __file__)
+# setup api instance
+api = MediaWiki(config.get('api_url'), config.get('api_config'))
+logged_in = api.login(config.get('api_username'), config.get('api_password'))
 
-    # setup and log into mediawiki api
-    # @todo error handling?
-    config = login(config)
+# check login attempt was successful
+if not logged_in:
+    log.error('Incorrect username or password. Username: %s; Password: %s',
+              config.get('api_username'), config.get('api_password'))
+    raise CresbotError('Incorrect password or username.')
 
-    log.info('Setup complete')
+# store in config for convenience
+config.update({'api': api})
 
-    try:
-        run_tasks(config)
-    # @todo change to `CresbotError` and allow error to bubble up to
-    #       `setup` call as it's an indication of the code needing fixing somewhere
-    except Exception as e:
-        log.exception('Uncaught exception: %s', e)
+log.info('Setup complete!')
 
-setup()
-
+try:
+    start_tasks(config)
+except Exception as e:
+    log.exception('Uncaught exception: %s', e)

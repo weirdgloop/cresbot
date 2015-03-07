@@ -39,8 +39,9 @@ def get_logger(config:dict, name:str):
                                   '%Y-%m-%d %H:%M:%S')
 
     if config['log_file'] is not None:
-        fh = logging.FileHandler(config['log_file'])
-        fh.setLevel(config['log_level_file'])
+        # @todo would this be easier to have separate logs for each day/task run?
+        fh = logging.FileHandler(config.get('log_file'))
+        fh.setLevel(config.get('log_level_file'))
         fh.setFormatter(formatter)
         log.addHandler(fh)
 
@@ -49,8 +50,11 @@ def get_logger(config:dict, name:str):
     # limit to top level errors
 
     sh = logging.StreamHandler()
-    sh.setLevel(config['log_level_stream'])
+    sh.setLevel(config.get('log_level_stream', 'INFO'))
     sh.setFormatter(formatter)
     log.addHandler(sh)
+
+    # prevent duplicate log entries being added
+    log.propagate = False
 
     return log

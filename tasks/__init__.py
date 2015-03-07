@@ -16,45 +16,72 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
+from time import sleep
+
+from schedule import Scheduler
+
 from .hiscorecounts import HiscoreCounts
 from ..log import get_logger
 from .. import exceptions as exc
 
 # stored as a dict so specific tasks can be run if desired
-taskdict = {
+tasks = {
     'hiscorecounts': HiscoreCounts
 }
 
-def run_tasks(config):
-    """Run tasks.
+def run_task(task, config:dict, log):
+    """Run a task.
 
     Args:
-        config: A dict containing the configuration options.
+        config:
+        log:
     """
-    log = get_logger(config, __file__)
-    tasks = []
+    try:
+        t = task(config)
+        log.info('Starting %s task.', task.__name__)
+        t.run()
+        log.info('%s task finished.', task.__name__)
+    except CresbotError as e:
+        log.exception(e)
 
-    # this is only something we wan to do for the initial run
-    # to allow for tasks being skipped due to errors
-    # afterwards we want to run all tasks all the time
-    if config['tasks'] is True:
-        tasks = taskdict.values()
-    elif isinstance(config['tasks'], list):
-        tasks = config['tasks']
+def start_tasks(config:dict):
+    """<docs>
 
-    # @todo figure out how to run this on startup (allow disabling on startup)
-    #       and then every day at 00:00 UTC
-    #       will require running tasks in a separate thread to allow other process to work
-    #       allow other threads to check what's going on during task run(s)
-    for task in tasks:
-        try:
-            log.info('Starting %s task.', task.__name__)
-            t = task(config)
-            t.run()
-            log.info('%s task finished.', task.__name__)
-        except exc.CresbotError as e:
-            log.exception(e)
-            
+    Args:
+        config:
+    """
+    log = get_logger(config, 'cresbot.tasks')
+
+    # store Scheduler instance for easy references to jobs
+    s = Scheduler()
+
+    # queue tasks ready next scheduled run
+    log.info('Queueing tasks for next scheduled run.')
+
+    for name, task in tasks.items():
+        job = s.every().day.at('00:00').do(run_task, task, config, log)
+        tasks[name] = job
+
+    # check if any tasks should be run on startup
+    if isinstance(config['tasks'], list):
+        log.info('Running start up tasks.')
+
+        if 'all' in config['tasks']:
+            config['tasks'] = tasks.keys()
+
+        for task in config['tasks']:
+            tasks[task].run()
+
+    while True:
+        s.run_pending()
+        sleep(1)
+
+
+
+
+    
+
+
 
     
     

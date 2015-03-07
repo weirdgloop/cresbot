@@ -1,3 +1,13 @@
 __pycache__
-cresbot/logs/*
+
+# windows things
+*.log
 notes.txt
+
+# packages
+dist
+*.egg-info
+build
+
+# config
+config.*

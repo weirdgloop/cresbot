@@ -28,15 +28,6 @@ from .exceptions import CresbotError
 
 # set available command line arguments
 parser = ArgumentParser(prog='$ python -m cresbot')
-parser.add_argument('-p',
-                    dest='api_password',
-                    help='Set the password to log into the MediaWiki API with.',
-                    metavar='password',
-                    required=True)
-parser.add_argument('-l',
-                    dest='log_file',
-                    help='(optional) Set the path to the log file.',
-                    metavar='/path/to/log/file')
 parser.add_argument('-t',
                     choices=['all', 'hiscorecounts'],
                     default=[],

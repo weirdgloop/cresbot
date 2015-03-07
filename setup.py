@@ -18,11 +18,16 @@
 
 # dry run: $ python setup.py install -n [-v]
 
-from setuptools import setup
+from setuptools import setup, find_packages
+
+# to install ceterach run:
+#   $ pip install git+git://github.com/Riamse/ceterach.git@master#egg=ceterach
+# doesn't seem to want to run normally
 
 setup(name = 'cresbot',
 	  version = 0.1,
-	  packages = ['cresbot'],
-	  dependency_links = ['https://github.com/Riamse/ceterach.git#egg=ceterach'],
-	  install_requires = ['beautifulsoup4', 'requests', 'schedule', 'pyyaml']
+	  packages = find_packages(),
+	  package_data = {'cresbot': ['config-sample.yaml']},
+	  dependency_links = ['git+git://github.com/Riamse/ceterach.git@master#egg=ceterach'],
+	  install_requires = ['beautifulsoup4', 'ceterach', 'requests', 'schedule', 'pyyaml']
 )

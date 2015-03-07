@@ -27,24 +27,21 @@ from .tasks import start_tasks
 from .exceptions import CresbotError
 
 # set available command line arguments
-parser = ArgumentParser(description='Start Cresbot script.', prog='python -m cresbot')
+parser = ArgumentParser(prog='$ python -m cresbot')
 parser.add_argument('-p',
-                    '--password',
                     dest='api_password',
                     help='Set the password to log into the MediaWiki API with.',
                     metavar='password',
                     required=True)
 parser.add_argument('-l',
-                    '--logfile',
                     dest='log_file',
-                    help='Set the path to the log file.',
+                    help='(optional) Set the path to the log file.',
                     metavar='/path/to/log/file')
 parser.add_argument('-t',
-                    '--tasks',
                     choices=['all', 'hiscorecounts'],
                     default=[],
                     dest='tasks',
-                    help='Run specific tasks on startup',
+                    help='(optional) Run specific tasks on startup.',
                     metavar='taskname',
                     nargs='*')
 

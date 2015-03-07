@@ -1,0 +1,18 @@
+%YAML 1.1 # Cresbot config file
+---
+# api config
+api              : null
+api_config       : {defaults: {maxlag: 5}}
+api_password     : null
+# @todo change to http://communitytest.wikia.com/api.php
+api_url          : http://runescape.wikia.com/api.php
+# @todo change to USERNAME
+api_username     : Cresbot
+
+# log config
+log_file         : /var/log/cresbot.log
+log_level_file   : DEBUG
+log_level_stream : INFO
+
+# task config
+tasks            : null

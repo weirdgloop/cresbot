@@ -32,8 +32,8 @@ parser.add_argument('-t',
                     choices=['all', 'hiscorecounts'],
                     default=[],
                     dest='tasks',
-                    help='(optional) Run specific tasks on startup.',
-                    metavar='taskname',
+                    help='Run tasks on startup. To run all tasks on startup use `all`. To run specific tasks, add them by name delimited by a space. Allowed task names: `hiscorecounts`.',
+                    metavar='task',
                     nargs='*')
 
 # parse arguments into a dictionary

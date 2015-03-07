@@ -11,15 +11,15 @@ This is a MediaWiki bot written in Python, designed for use on the [RuneScape Wi
 ## Command line usage
 Cresbot is designed to be run from a command line environment.
 ```
-$ python -m cresbot [-t [taskname [taskname ...]]]
+usage: $ python -m cresbot [-h] [-t [task [task ...]]]
 
 optional arguments:
-  -t [taskname [taskname ...]] Run tasks on startup. To run all tasks on startup use `all`. To
-                               run specific tasks, add them by name separated by a space. Allowed
-                               task names: `hiscorecounts`.
+  -h, --help            show this help message and exit
+  -t [task [task ...]]  Run tasks on startup. To run all tasks on startup use
+                        `all`. To run specific tasks, add them by name
+                        delimited by a space. Allowed task names:
+                        `hiscorecounts`.
 ```
-
-Usage and argument help can also be accessed from the command line using `$ python -m cresbot -h`.
 
 ## Config
 A sample config file can be found in [cresbot/config-sample.yaml](https://github.com/onei/cresbot/blob/master/cresbot/config-sample.yaml). This file should be altered for use and saved as `config.yaml` in the same directory and `config-sample.yaml`.

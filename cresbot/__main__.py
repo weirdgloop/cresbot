@@ -28,6 +28,8 @@ from .exceptions import CresbotError
 
 # set available command line arguments
 parser = ArgumentParser(prog='$ python -m cresbot')
+parser.add_argument('config',
+                    help='Set config file.')
 parser.add_argument('-t',
                     choices=['all', 'hiscorecounts'],
                     default=[],
@@ -40,15 +42,8 @@ parser.add_argument('-t',
 args = parser.parse_args()
 args = vars(args)
 
-# set tasks to None if there's no specified tasks
-# defaults to a list due to `... -t` producing an empty list anyway
-if not len(args.get('tasks')):
-    # can't use `.update()` here as it won't work for None
-    # maybe delete it instead?
-    args['tasks'] = None
-
 # load config from file
-config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.yaml')
+config_path = args.pop('config', 0)
 
 # check file exists first
 if not os.path.isfile(config_path):

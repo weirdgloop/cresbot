@@ -27,7 +27,6 @@ from setuptools import setup, find_packages
 setup(name = 'cresbot',
 	  version = 0.1,
 	  packages = find_packages(),
-	  package_data = {'cresbot': ['config-sample.yaml']},
 	  dependency_links = ['git+git://github.com/Riamse/ceterach.git@master#egg=ceterach'],
-	  install_requires = ['beautifulsoup4', 'ceterach', 'requests', 'schedule', 'pyyaml']
-)
+	  install_requires = ['beautifulsoup4', 'ceterach', 'requests', 'schedule', 'pyyaml'],
+	  zip_safe = False)

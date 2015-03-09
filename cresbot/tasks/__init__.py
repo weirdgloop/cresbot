@@ -63,14 +63,13 @@ def start_tasks(config:dict):
         tasks[name] = job
 
     # check if any tasks should be run on startup
-    if isinstance(config['tasks'], list):
-        log.info('Running start up tasks.')
+    log.info('Attempting to run start up task(s).')
 
-        if 'all' in config['tasks']:
-            config['tasks'] = tasks.keys()
+    if 'all' in config['tasks']:
+        config['tasks'] = tasks.keys()
 
-        for task in config['tasks']:
-            tasks[task].run()
+    for task in config['tasks']:
+        tasks[task].run()
 
     while True:
         s.run_pending()

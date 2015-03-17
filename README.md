@@ -17,7 +17,7 @@ pip wheel -w deps -r cresbot.egg-info/requires.txt
 ## Installing
 To install, clone this repository, and run:
 ```
- pip install --no-index -f deps dist/cresbot-0.0.1-py34-none-any.whl
+pip install --no-index -f deps dist/cresbot-0.0.1-py34-none-any.whl
 ```
 
 ## Todo list

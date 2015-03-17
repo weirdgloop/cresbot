@@ -27,7 +27,8 @@ setup(
     license = 'GPLv3',
     url = 'https://github.com/onei/cresbot',
     packages = ['cresbot', 'cresbot.tasks'],
-    install_requires = ['beautifulsoup4', 'ceterach', 'pyyaml', 'requests', 'schedule'],
+    # @todo add versions to avoid potential issues when installing from deps
+    install_requires = ['beautifulsoup4', 'ceterach', 'PyYAML', 'requests', 'schedule'],
     classifiers = [
         'Development Status :: 1 - Planning',
         'Intended Audience :: End Users/Desktop',

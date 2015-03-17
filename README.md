@@ -43,7 +43,7 @@ optional arguments:
 ```
 
 ## Config
-A sample config file can be found in [cresbot/config-sample.yaml](https://github.com/onei/cresbot/blob/master/cresbot/config-sample.yaml). This file should be altered for use and saved as `config.yaml` in the same directory and `config-sample.yaml`.
+A sample config file can be found in [config-sample.yaml](https://github.com/onei/cresbot/blob/master/config-sample.yaml). This file should be altered for use and saved as `config.yaml` in the same directory and `config-sample.yaml`.
 ```yaml
 api              : null
 api_config       : {defaults: {maxlag: 5}}

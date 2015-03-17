@@ -1,13 +1,5 @@
 __pycache__
 
-# windows things
-*.log
-notes.txt
-
-# packages
-dist
+# unnecessary build artefacts
 *.egg-info
 build
-
-# config
-config.*

@@ -41,7 +41,7 @@ def run_task(task, config:dict, log):
         log.info('Starting %s task.', task.__name__)
         t.run()
         log.info('%s task finished.', task.__name__)
-    except CresbotError as e:
+    except exc.CresbotError as e:
         log.exception(e)
 
 def start_tasks(config:dict):

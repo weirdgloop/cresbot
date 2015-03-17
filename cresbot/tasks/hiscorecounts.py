@@ -147,7 +147,9 @@ class HiscoreCounts(Task):
         try:
             page.edit(text, 'Updating hiscore counts', bot=True)
         # @todo handle other errors?
+        # @todo handle badtoken
         except cetexc.EditError as e:
+            self.log.info(e, e.msg)
             self.log.error('Could not update hiscore counts. Error: %s', e)
             self.log.error(text)
             raise crexc.CresbotError(e)

@@ -3,15 +3,36 @@ cresbot
 
 This is a MediaWiki bot written in Python, designed for use on the [RuneScape Wiki](http://runescape.wikia.com/wiki/RuneScape_Wiki).
 
+## Creating builds
+To create the build:
+```
+python setup.py bdist_wheel --python-tag py34 --plat-name any
+```
+
+To create builds for each dependency, run the above command to generate `cresbot.egg-info/requires.txt` and edit that file, replacing `ceterach` with `git+git://github.com/Riamse/ceterach@master#egg=ceterach`. Then, run:
+```
+pip wheel -w deps -r cresbot.egg-info/requires.txt
+```
+
+## Installing
+To install, clone this repository, and run:
+```
+ pip install --no-index -f deps dist/cresbot-0.0.1-py34-none-any.whl
+```
+
 ## Todo list
 
 * Implement email logging for exceptions
 * Document config file
+* Move this setion to github issues tracker
 
 ## Command line usage
 Cresbot is designed to be run from a command line environment.
 ```
-usage: $ python -m cresbot [-h] [-t [task [task ...]]]
+usage: python -m cresbot [-h] [-t [task [task ...]]] config
+
+positional arguments:
+  config                Set config file.
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -48,5 +69,5 @@ log_level_stream : INFO
 ```yaml
 tasks            : null
 ```
-* `tasks` is a placeholder for the list of tasks rquested to be run from the command line.
+* `tasks` is a placeholder for the list of tasks requested to be run from the command line.
  

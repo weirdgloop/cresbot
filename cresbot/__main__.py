@@ -30,7 +30,7 @@ def main():
     # set available command line arguments
     parser = ArgumentParser(prog='python -m cresbot')
     parser.add_argument('config',
-                        help='Set config file.')
+                        help='Set path to config file.')
     parser.add_argument('-t',
                         choices=['all', 'hiscorecounts'],
                         default=[],

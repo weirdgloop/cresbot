@@ -258,7 +258,6 @@ class HiscoreCounts(Task):
             checked = []
 
         reqs += 1
-        print(params)
 
         soup = self._get_page(params)
         rows = (x for x in soup.select('div.tableWrap tbody tr') \
@@ -277,10 +276,8 @@ class HiscoreCounts(Task):
             if first is True:
                 first = False
                 up = True
-                print('value is above current known page')
 
             if up is False and not found:
-                print('gone too far past value')
                 found = True
 
             if up and not found:
@@ -305,10 +302,8 @@ class HiscoreCounts(Task):
             if first is True:
                 first = False
                 up = False
-                print('value is below current known page')
 
             if up is True and not found:
-                print('gone too far past value')
                 found = True
 
             if not up and not found:
@@ -341,7 +336,7 @@ class HiscoreCounts(Task):
             else:
                 break
 
-        print('number of checked pages:', reqs)
+        log.info('Number of checked pages: %s.', reqs)
 
         return data[-1]
 
@@ -422,6 +417,3 @@ class HiscoreCounts(Task):
         self.new_counts[count].update({key: val})
         
         return ret
-
-#t = HiscoreCounts()
-#t.run()

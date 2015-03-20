@@ -28,7 +28,7 @@ from .exceptions import CresbotError
 
 def main():
     # set available command line arguments
-    parser = ArgumentParser()
+    parser = ArgumentParser(prog='python -m cresbot')
     parser.add_argument('config',
                         help='Set config file.')
     parser.add_argument('-t',

@@ -145,11 +145,12 @@ class HiscoreCounts(Task):
         text = self.get_lowest_ranks(text, 'lowest_ranks')
 
         try:
+            # reset the token with each edit
+            # otherwise this fails on subsequent runs as it uses the same api instance
+            page._api.set_token('edit')
             page.edit(text, 'Updating hiscore counts', bot=True)
         # @todo handle other errors?
-        # @todo handle badtoken
         except cetexc.EditError as e:
-            self.log.info(e, e.msg)
             self.log.error('Could not update hiscore counts. Error: %s', e)
             self.log.error(text)
             raise crexc.CresbotError(e)
@@ -179,9 +180,6 @@ class HiscoreCounts(Task):
         old_table = r_table.group(1).strip()
         table = r_table.group(1).strip()
 
-        # @todo move count storage to self.update_count
-        self.new_counts[count] = {}
-
         for i, skill in enumerate(SKILLS):
             if skill == 'overall':
                 # don't run overall for some counts
@@ -201,7 +199,8 @@ class HiscoreCounts(Task):
             num = cur_count.group(1)
 
             # 25 ranks per page
-            start_page = math.floor(int(num.replace(',', '')) / 25)
+            # remove 20 to test binary search thing
+            start_page = math.floor(int(num.replace(',', '')) / 25) - 20
 
             # make sure start_page is always >=1
             # happens when existing count is <25 (first page)
@@ -211,29 +210,23 @@ class HiscoreCounts(Task):
             # if something goes wrong here
             # we skip updating that count, log the error
             # and move onto the next
-            #try:
-            new_count = self.find_value(params, val_type, val)
-            #except:
+            try:
+                new_count = self.find_value(params, val_type, val)
+            except:
                 # @todo
-            #print('un-implemented error handling')
-            #else:
-            # print something we can insert into lua if required?
-            # should be handled in new_counts
-            self.log.info('[\'%s\'] = %s', skill, new_count)
-            self.new_counts[count][skill] = new_count
-
-            table = self.update_count(table, skill, new_count)
+                print('un-implemented error handling')
+            else:
+                table = self.update_count(table, skill, new_count, count)
 
         # update updated time
-        table = self.update_count(table, 'updated', self.updated)
-        self.new_counts[count]['updated'] = self.updated
+        table = self.update_count(table, 'updated', self.updated, count)
 
         # update text
         text = text.replace(old_table, table)
         self.log.info('%s subtask complete.', count)
         return text
 
-    def find_value(self, params:dict, col:int, value:int, checked:list=None):
+    def find_value(self, params:dict, col:int, value:int, checked:list=None, step:int=1, accel:int=2, first:bool=True, reqs:int=0, up:bool=None, found:bool=False):
         """Scrape the requested hiscores page looking for the last occurance
         of `value`.
 
@@ -245,6 +238,12 @@ class HiscoreCounts(Task):
                 or xp respectively.
             value: An integer representing the level or xp to look for.
             checked: A list of pages already checked.
+            step:
+            accel:
+            first:
+            reqs:
+            up:
+            found:
 
         Returns:
             An string representing the rank of the last player with `value`.
@@ -258,6 +257,9 @@ class HiscoreCounts(Task):
         if checked is None:
             checked = []
 
+        reqs += 1
+        print(params)
+
         soup = self._get_page(params)
         rows = (x for x in soup.select('div.tableWrap tbody tr') \
                 if not isinstance(x, nstr))
@@ -268,27 +270,51 @@ class HiscoreCounts(Task):
             trs.append(tuple(tds))
 
         # check if the last value on the page is `value`
-        # if so jump to the next page
+        # if so jump forwards
         last_val = trs[-1][col].a.string.strip().replace(',', '')
-        
+
         if int(last_val) >= value:
+            if first is True:
+                first = False
+                up = True
+                print('value is above current known page')
+
+            if up is False and not found:
+                print('gone too far past value')
+                found = True
+
+            if up and not found:
+                step *= accel
+            else:
+                step /= accel
+
             # track which pages have already been visited
             checked.append(params['page'])
-            params['page'] += 1
-            self.log.debug('Value:%s found in last row, moving to next page (%s).',
-                            value, params['page'])
-            return self.find_value(params, col, value, checked)
+            params['page'] += int(step)
+            return self.find_value(params, col, value, checked, step, accel, first, reqs, up, found)
 
         # check if the first value if less than `value`
-        # if so jump to the previous page
-        first_val = trs[0][col].a.string \
-                    .strip() \
-                    .replace(',', '')
+        # if so jump backwards
+        first_val = trs[0][col].a.string.strip().replace(',', '')
 
         if int(first_val) < value:
             # check we're not on the first page (no players have `value`)
             if params['page'] == 1:
                 return '0'
+
+            if first is True:
+                first = False
+                up = False
+                print('value is below current known page')
+
+            if up is True and not found:
+                print('gone too far past value')
+                found = True
+
+            if not up and not found:
+                step *= accel
+            else:
+                step /= accel
 
             # check if the previous page has already been visited
             # to stop an infinite loop
@@ -299,26 +325,23 @@ class HiscoreCounts(Task):
 
             # track which pages have already been visited
             checked.append(params['page'])
-            params['page'] -= 1
-            self.log.debug('Value:%s not found, moving to previous page (%s).',
-                            value, params['page'])
-            return self.find_value(params, col, value, checked)
+            params['page'] -= int(step)
+            return self.find_value(params, col, value, checked, step, accel, first, reqs, up, found)
 
         # we should be on the correct page, so check every value
         # until one is found that matches `value`
         data = []
         
         for tds in trs:
-            rank = tds[0].a.string \
-                   .strip()
-            val = tds[col].a.string \
-                  .strip() \
-                  .replace(',', '')
+            rank = tds[0].a.string.strip()
+            val = tds[col].a.string.strip().replace(',', '')
 
             if int(val) >= value:
                 data.append(rank)
             else:
                 break
+
+        print('number of checked pages:', reqs)
 
         return data[-1]
 
@@ -359,21 +382,22 @@ class HiscoreCounts(Task):
             lvl = cells[2].a.string.strip()
 
             # update table
-            table = self.update_count(table, skill + '.rank', rank)
-            table = self.update_count(table, skill, lvl)
+            # @todo don't hardcode the count in this
+            table = self.update_count(table, skill + '.rank', rank, 'lowest_ranks')
+            table = self.update_count(table, skill, lvl, 'lowest_ranks')
 
             self.log.info('Minimum level of %s: %s.', skill, lvl)
             self.log.info('Entry rank for %s: %s.', skill, rank)
 
         # update updated time
-        table = self.update_count(table, 'updated', self.updated)
+        table = self.update_count(table, 'updated', self.updated, 'lowest_ranks')
 
         # update text
         text = text.replace(old_table, table)
         self.log.info('lowest_ranks subtask complete.')
         return text
 
-    def update_count(self, text:str, key:str, val:str):
+    def update_count(self, text:str, key:str, val:str, count:str):
         """Update the value of a key in a lua table.
 
         Args:
@@ -390,6 +414,12 @@ class HiscoreCounts(Task):
         old = match.group(0)
         new = old.replace(match.group(1), val)
         ret = text.replace(old, new)
+
+        # store the updated values in a dict so they can be recovered if necessary
+        if self.new_counts.get(count, None) is None:
+            self.new_counts[count] = {}
+
+        self.new_counts[count].update({key: val})
         
         return ret
 

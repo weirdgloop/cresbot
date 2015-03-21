@@ -212,9 +212,8 @@ class HiscoreCounts(Task):
             # and move onto the next
             try:
                 new_count = self.find_value(params, val_type, val)
-            except:
-                # @todo
-                print('un-implemented error handling')
+            except Exception as e:
+                self.log.exception(e)
             else:
                 table = self.update_count(table, skill, new_count, count)
 
@@ -336,7 +335,7 @@ class HiscoreCounts(Task):
             else:
                 break
 
-        log.info('Number of checked pages: %s.', reqs)
+        self.log.info('Number of checked pages: %s.', reqs)
 
         return data[-1]
 

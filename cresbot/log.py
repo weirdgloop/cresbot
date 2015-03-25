@@ -18,6 +18,7 @@
 
 import os
 import logging
+from logging.handlers import SMTPHandler
 
 def get_logger(config:dict, name:str):
     """Create an instance of `Logger`.
@@ -38,17 +39,35 @@ def get_logger(config:dict, name:str):
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                                   '%Y-%m-%d %H:%M:%S')
 
-    if config['log_file'] is not None:
-        # @todo would this be easier to have separate logs for each day/task run?
+    # optional file logging
+    if config.get('log_file', None) is not None:
+        # @todo have separate logs for each day/task run
         fh = logging.FileHandler(config.get('log_file'))
         fh.setLevel(config.get('log_level_file'))
         fh.setFormatter(formatter)
         log.addHandler(fh)
 
-    # @todo implement email logging for errors
-    # http://stackoverflow.com/a/6187851/1942596
-    # limit to top level errors
+    # optional email logging
+    if config.get('log_email', False):
+        # http://bytes.com/topic/python/answers/760212-examples-logger-using-smtp
+        # need to subclass SMTPHandler for gmail support
+        pass
+        """
+        smtp = SMTPHandler(
+            mailhost = tuple(config.get('log_email_host')),
+            fromaddr = config.get('log_email_from'),
+            toaddrs = config.get('log_email_to'),
+            subject = config.get('log_email_subject'),
+             # @todo move this to a single config option
+            credentials = (config.get('log_email_username'), config.get('log_email_password'))
+        )
+        smtp.setLevel(config.get('log_level_email'))
+        smtp.setFormatter(formatter)
+        log.addHandler(smtp)
+        """
 
+
+    # default stream logging
     sh = logging.StreamHandler()
     sh.setLevel(config.get('log_level_stream', 'INFO'))
     sh.setFormatter(formatter)

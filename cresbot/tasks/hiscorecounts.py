@@ -98,6 +98,8 @@ class HiscoreCounts(Task):
 
             if diff < self.throttle:
                 sleep(self.throttle - diff)
+        else:
+            print('first request')
 
         # normalise any exceptions
         try:
@@ -134,7 +136,7 @@ class HiscoreCounts(Task):
             text = page.content
         # @todo handle these separately?
         except (cetexc.ApiError, cetexc.CeterachError) as e:
-            self.log.error('Current counts text count not be found. Error: %s', e)
+            self.log.warning('Current counts text count not be found. Error: %s', e)
             # @todo implement fallback if reasonable
             raise crexc.CresbotError(e)
         
@@ -151,8 +153,8 @@ class HiscoreCounts(Task):
             page.edit(text, 'Updating hiscore counts', bot=True)
         # @todo handle other errors?
         except cetexc.EditError as e:
-            self.log.error('Could not update hiscore counts. Error: %s', e)
-            self.log.error(text)
+            self.log.warning('Could not update hiscore counts. Error: %s', e)
+            self.log.warning(text)
             raise crexc.CresbotError(e)
 
     def get_count(self, text:str, count:str, value:int, val_type:str):
@@ -199,12 +201,7 @@ class HiscoreCounts(Task):
             num = cur_count.group(1)
 
             # 25 ranks per page
-            # remove 20 to test binary search thing
-            start_page = math.floor(int(num.replace(',', '')) / 25) - 20
-
-            # make sure start_page is always >=1
-            # happens when existing count is <25 (first page)
-            # @todo should we be doing start_page += 1 anyway?
+            start_page = math.ceil(int(num.replace(',', '')) / 25)
             params.update({'table': i, 'page': max(start_page, 1)})
 
             # if something goes wrong here
@@ -212,6 +209,7 @@ class HiscoreCounts(Task):
             # and move onto the next
             try:
                 new_count = self.find_value(params, val_type, val)
+            # @todo handle more specific exceptions
             except Exception as e:
                 self.log.exception(e)
             else:
@@ -225,6 +223,8 @@ class HiscoreCounts(Task):
         self.log.info('%s subtask complete.', count)
         return text
 
+    # the number of variables for this ridiculous
+    # figure out how to reduce them
     def find_value(self, params:dict, col:int, value:int, checked:list=None, step:int=1, accel:int=2, first:bool=True, reqs:int=0, up:bool=None, found:bool=False):
         """Scrape the requested hiscores page looking for the last occurance
         of `value`.
@@ -249,14 +249,15 @@ class HiscoreCounts(Task):
 
         Notes:
            This is an internal method and should not be called directly.
+           @todo prefix with underscore
         """
-        # @todo implement jumping forward multiple pages
-        #       to reduce number of potential requests if the task hasn't run for a while
-        #       or if an error occured during loading the current data
         if checked is None:
             checked = []
 
         reqs += 1
+
+        self.log.debug('page: %s, step: %s, reqs: %s, up: %s, found: %s', params['page'], step,
+                       reqs, up, found)
 
         soup = self._get_page(params)
         rows = (x for x in soup.select('div.tableWrap tbody tr') \
@@ -276,13 +277,15 @@ class HiscoreCounts(Task):
                 first = False
                 up = True
 
+            # move the below to an else so we don't jump forward 2 pages straight away
+
             if up is False and not found:
                 found = True
 
             if up and not found:
                 step *= accel
             else:
-                step /= accel
+                step = int(step / accel)
 
             # track which pages have already been visited
             checked.append(params['page'])
@@ -308,7 +311,7 @@ class HiscoreCounts(Task):
             if not up and not found:
                 step *= accel
             else:
-                step /= accel
+                step = int(step / accel)
 
             # check if the previous page has already been visited
             # to stop an infinite loop
@@ -335,7 +338,7 @@ class HiscoreCounts(Task):
             else:
                 break
 
-        self.log.info('Number of checked pages: %s.', reqs)
+        self.log.info('No. requests: %s.', reqs)
 
         return data[-1]
 

@@ -22,9 +22,9 @@ from argparse import ArgumentParser
 import yaml
 from ceterach.api import MediaWiki
 
-from .log import get_logger
-from .tasks import start_tasks
-from .exceptions import CresbotError
+from log import get_logger
+from exceptions import CresbotError
+import tasks
 
 def main():
     # set available command line arguments
@@ -74,9 +74,8 @@ def main():
     log.info('Setup complete!')
 
     try:
-        start_tasks(config)
+        tasks.start_tasks(config)
     except Exception as e:
         log.exception('Uncaught exception: %s', e)
 
-if __name__ == '__main__':
-    main()
+main()

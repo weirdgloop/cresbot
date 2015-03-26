@@ -28,8 +28,8 @@ from ceterach.api import MediaWiki
 from ceterach import exceptions as cetexc
 from bs4 import BeautifulSoup, NavigableString as nstr
 
+import exceptions as crexc
 from .task import Task
-from .. import exceptions as crexc
 
 __all__ = ['HiscoreCounts']
 
@@ -99,7 +99,7 @@ class HiscoreCounts(Task):
             if diff < self.throttle:
                 sleep(self.throttle - diff)
         else:
-            print('first request')
+            self.log.debug('First request')
 
         # normalise any exceptions
         try:

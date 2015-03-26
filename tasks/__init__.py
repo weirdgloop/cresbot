@@ -20,9 +20,9 @@ from time import sleep
 
 from schedule import Scheduler
 
+from log import get_logger
+import exceptions as exc
 from .hiscorecounts import HiscoreCounts
-from ..log import get_logger
-from .. import exceptions as exc
 
 # stored as a dict so specific tasks can be run if desired
 tasks = {

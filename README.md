@@ -1,35 +1,18 @@
 cresbot
 =======
 
+
 This is a MediaWiki bot written in Python, designed for use on the [RuneScape Wiki](http://runescape.wikia.com/wiki/RuneScape_Wiki).
 
-## Creating builds
-To create the build:
-```
-python setup.py bdist_wheel --python-tag py34 --plat-name any
-```
-
-To create builds for each dependency, run the above command to generate `cresbot.egg-info/requires.txt` and edit that file, replacing `ceterach` with `git+git://github.com/Riamse/ceterach@master#egg=ceterach`. Then, run:
-```
-pip wheel -w deps -r cresbot.egg-info/requires.txt
-```
-
 ## Installing
-To install, clone this repository, and run:
-```
-pip install --no-index -f deps dist/cresbot-0.0.1-py34-none-any.whl
-```
+(just clone from git repo)
 
-## Todo list
-
-* Implement email logging for exceptions
-* Document config file
-* Move this setion to github issues tracker
+(and install dependencies)
 
 ## Command line usage
 Cresbot is designed to be run from a command line environment.
 ```
-usage: python -m cresbot [-h] [-t [task [task ...]]] config
+usage: python cresbot.py [-h] [-t [task [task ...]]] config
 
 positional arguments:
   config                Set config file.
@@ -43,7 +26,7 @@ optional arguments:
 ```
 
 ## Config
-A sample config file can be found in [config-sample.yaml](https://github.com/onei/cresbot/blob/master/config-sample.yaml). This file should be altered for use and saved as `config.yaml` in the same directory and `config-sample.yaml`.
+A sample config file can be found in [config-sample.yaml](https://github.com/onei/cresbot/blob/master/config-sample.yaml). This file should be altered for use and used during command line usage.
 ```yaml
 api              : null
 api_config       : {defaults: {maxlag: 5}}

@@ -95,6 +95,7 @@ class HiscoreCounts(Task):
         # throttle requests
         if self.last is not None:
             diff = time() - self.last
+            self.log('last: %s, diff: %s, throttle: %s', self.last, diff, self.throttle)
 
             if diff < self.throttle:
                 sleep(self.throttle - diff)
@@ -276,16 +277,14 @@ class HiscoreCounts(Task):
             if first is True:
                 first = False
                 up = True
-
-            # move the below to an else so we don't jump forward 2 pages straight away
-
-            if up is False and not found:
-                found = True
-
-            if up and not found:
-                step *= accel
             else:
-                step = int(step / accel)
+                if up is False and not found:
+                    found = True
+
+                if up and not found:
+                    step *= accel
+                else:
+                    step = int(step / accel)
 
             # track which pages have already been visited
             checked.append(params['page'])
@@ -304,17 +303,18 @@ class HiscoreCounts(Task):
             if first is True:
                 first = False
                 up = False
-
-            if up is True and not found:
-                found = True
-
-            if not up and not found:
-                step *= accel
             else:
-                step = int(step / accel)
+                if up is True and not found:
+                    found = True
+
+                if not up and not found:
+                    step *= accel
+                else:
+                    step = int(step / accel)
 
             # check if the previous page has already been visited
             # to stop an infinite loop
+            self.log.debug('page: %s, prev_page: %s', params['page'], parames['page'] - 1)
             if (params['page'] - 1) in checked:
                 rank = trs[0][0].a.string.strip()
 

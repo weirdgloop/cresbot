@@ -286,6 +286,11 @@ class HiscoreCounts(Task):
                 else:
                     step = int(step / accel)
 
+            # possible bug fix?
+            if (params['page'] + 1) in checked:
+                rank = trs[-1][0].a.string.strip()
+                return rank
+
             # track which pages have already been visited
             checked.append(params['page'])
             params['page'] += int(step)

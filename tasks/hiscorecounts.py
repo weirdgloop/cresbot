@@ -315,7 +315,7 @@ class HiscoreCounts(Task):
             # check if the previous page has already been visited
             # to stop an infinite loop
             self.log.debug('page: %s, prev_page: %s', params['page'], params['page'] - 1)
-            self.log.debug('checked pages: %s', ','.join(checked)
+            self.log.debug('checked pages: %s', ','.join(checked))
             if (params['page'] - 1) in checked:
                 rank = trs[0][0].a.string.strip()
 

@@ -95,7 +95,7 @@ class HiscoreCounts(Task):
         # throttle requests
         if self.last is not None:
             diff = time() - self.last
-            self.log('last: %s, diff: %s, throttle: %s', self.last, diff, self.throttle)
+            self.log.debug('last: %s, diff: %s, throttle: %s', self.last, diff, self.throttle)
 
             if diff < self.throttle:
                 sleep(self.throttle - diff)

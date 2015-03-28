@@ -1,5 +1,5 @@
 __pycache__
 
-# unnecessary build artefacts
-*.egg-info
-build
+# things used in production
+logs/*
+config.yaml

@@ -18,3 +18,7 @@
 
 class CresbotError(Exception):
 	"""<docs>"""
+
+if True:
+	class SetupError(CresbotError):
+		"""<docs>"""

@@ -24,7 +24,7 @@ import yaml
 from ceterach.api import MediaWiki
 
 from log import get_logger
-from exceptions import CresbotError
+from exceptions import SetupError
 import tasks
 
 def main():
@@ -49,7 +49,7 @@ def main():
 
     # check file exists first
     if not os.path.isfile(config_path):
-        raise CresbotError('Config fle could not be found. Path: ' + config_path)
+        raise SetupError('Config file could not be found. Path: ' + config_path)
 
     with open(config_path) as f:
         config = yaml.load(f)
@@ -67,7 +67,7 @@ def main():
     if not logged_in:
         log.error('Incorrect username or password. Username: %s; Password: %s',
                   config.get('api_username'), config.get('api_password'))
-        raise CresbotError('Incorrect password or username.')
+        raise SetupError('Incorrect password or username in config.')
 
     # store in config for convenience
     config.update({'api': api})

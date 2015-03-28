@@ -46,6 +46,13 @@ SKILLS = ['overall', 'attack', 'defence', 'strength', 'constitution',
           'farming', 'runecrafting', 'hunter', 'construction',
           'summoning', 'dungeoneering', 'divination']
 
+# global vars used in `_find_value`
+checked = None
+step = None
+reqs = None
+up = None
+found = None
+
 class HiscoreCounts(Task):
 
     # placeholder date string for updating 'updated' value in each count table
@@ -209,7 +216,7 @@ class HiscoreCounts(Task):
             # we skip updating that count, log the error
             # and move onto the next
             try:
-                new_count = self.find_value(params, val_type, val)
+                new_count = self._find_value(params, val_type, val)
             # @todo handle more specific exceptions
             except Exception as e:
                 self.log.exception(e)
@@ -224,9 +231,7 @@ class HiscoreCounts(Task):
         self.log.info('%s subtask complete.', count)
         return text
 
-    # the number of variables for this ridiculous
-    # figure out how to reduce them
-    def find_value(self, params:dict, col:int, value:int, checked:list=None, step:int=1, accel:int=2, first:bool=True, reqs:int=0, up:bool=None, found:bool=False):
+    def _find_value(self, params:dict, col:int, value:int):
         """Scrape the requested hiscores page looking for the last occurance
         of `value`.
 
@@ -237,28 +242,23 @@ class HiscoreCounts(Task):
                 column table. For normal usage it should be 2 or 3 for level
                 or xp respectively.
             value: An integer representing the level or xp to look for.
-            checked: A list of pages already checked.
-            step:
-            accel:
-            first:
-            reqs:
-            up:
-            found:
 
         Returns:
             An string representing the rank of the last player with `value`.
-
-        Notes:
-           This is an internal method and should not be called directly.
-           @todo prefix with underscore
         """
+        global checked, step, reqs, up, found
+
         if checked is None:
             checked = []
+            step = 1
+            reqs = 0
+            up = None
+            found = False
 
         reqs += 1
 
-        self.log.debug('page: %s, step: %s, reqs: %s, up: %s, found: %s', params['page'], step,
-                       reqs, up, found)
+        self.log.debug('page: %s, step: %s, reqs: %s, up: %s, found: %s',
+                       params['page'], step, reqs, up, found)
 
         soup = self._get_page(params)
         rows = (x for x in soup.select('div.tableWrap tbody tr') \
@@ -274,19 +274,19 @@ class HiscoreCounts(Task):
         last_val = trs[-1][col].a.string.strip().replace(',', '')
 
         if int(last_val) >= value:
-            if first is True:
-                first = False
+            if not len(checked):
                 up = True
             else:
                 if up is False and not found:
                     found = True
 
                 if up and not found:
-                    step *= accel
+                    step *= 2
                 else:
-                    step = int(step / accel)
+                    step /= 2
 
-            # possible bug fix?
+            # check if the next page has already been visited
+            # to stop an infinite loop
             if (params['page'] + 1) in checked:
                 rank = trs[-1][0].a.string.strip()
                 return rank
@@ -294,7 +294,7 @@ class HiscoreCounts(Task):
             # track which pages have already been visited
             checked.append(params['page'])
             params['page'] += int(step)
-            return self.find_value(params, col, value, checked, step, accel, first, reqs, up, found)
+            return self._find_value(params, col, value)
 
         # check if the first value if less than `value`
         # if so jump backwards
@@ -305,31 +305,28 @@ class HiscoreCounts(Task):
             if params['page'] == 1:
                 return '0'
 
-            if first is True:
-                first = False
+            if not len(checked):
                 up = False
+            # only increase the step after first request
             else:
                 if up is True and not found:
                     found = True
 
                 if not up and not found:
-                    step *= accel
+                    step *= 2
                 else:
-                    step = int(step / accel)
+                    step /= 2
 
             # check if the previous page has already been visited
             # to stop an infinite loop
-            self.log.debug('page: %s, prev_page: %s', params['page'], params['page'] - 1)
-            self.log.debug('checked pages: %s', ', '.join(map(str, checked)))
             if (params['page'] - 1) in checked:
                 rank = trs[0][0].a.string.strip()
-
                 return rank
 
             # track which pages have already been visited
             checked.append(params['page'])
             params['page'] -= int(step)
-            return self.find_value(params, col, value, checked, step, accel, first, reqs, up, found)
+            return self._find_value(params, col, value)
 
         # we should be on the correct page, so check every value
         # until one is found that matches `value`
@@ -344,8 +341,10 @@ class HiscoreCounts(Task):
             else:
                 break
 
-        self.log.info('No. requests: %s.', reqs)
+        # reset checked for next run
+        checked = None
 
+        self.log.info('players: %s, requests: %s.', data[-1], reqs)
         return data[-1]
 
     def get_lowest_ranks(self, text:str, table:str):

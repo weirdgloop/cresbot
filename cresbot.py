@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ----------------------------------------------------------------------
 # Copyright (c) 2015 Matthew Dowdell <mdowdell244@gmail.com>.
 # This file is part of Cresbot.
@@ -28,7 +29,7 @@ import tasks
 
 def main():
     # set available command line arguments
-    parser = ArgumentParser(prog='python cresbot.py')
+    parser = ArgumentParser(prog='cresbot.py')
     parser.add_argument('config',
                         help='Set path to config file.')
     parser.add_argument('-t',
@@ -48,7 +49,7 @@ def main():
 
     # check file exists first
     if not os.path.isfile(config_path):
-        raise CresbotError('Config fle could not be found. Path: %s' % config_path)
+        raise CresbotError('Config fle could not be found. Path: ' + config_path)
 
     with open(config_path) as f:
         config = yaml.load(f)

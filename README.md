@@ -17,9 +17,9 @@ pip install -r requirements.txt
 Note that this is only tested with the latest version of each dependency. Older versions may work, but are not supported.
 
 ## Command line usage
-Cresbot is designed to be run from a command line environment.
+Cresbot is designed to be run from as a background task in a command line environment.
 ```
-usage: cresbot.py [-h] [-t [task [task ...]]] config
+usage: ./cresbot.py [-h] [-t [task [task ...]]] config
 
 positional arguments:
   config                Set path to config file.
@@ -31,6 +31,7 @@ optional arguments:
                         delimited by a space. Allowed task names:
                         `hiscorecounts`.
 ```
+You may have to mark `cresbot.py` as executable, which can be done by running `chmod +x cresbot.py`. For Windows users, the usage is `python cresbot.py ...`.
 
 ## Config
 A sample config file can be found in [config-sample.yaml](https://github.com/onei/cresbot/blob/master/config-sample.yaml). This file should be altered for use and used during command line usage. This is normally saved within the cresbot directory.
@@ -52,7 +53,7 @@ tasks            : null
 * `api_url` is the URL of the MediaWiki wiki API access point.
 * `api_username` is the username of the account to log into the MediaWiki API with.
 * `api_password` is the password of the account to log into the MediaWiki API with.
-* `log_file` is the location of the log file used by cresbot. This is normally the logs subdirectory within the cresbot directory.
+* `log_file` is the location of the log file used by cresbot. Remember to crate the directory before running the script to avoid errors. This is normally the logs subdirectory within the cresbot directory.
 * `log_level_file` is the log level setting used when logging to a file.
 * `log_level_stream` is the log level setting used when logging via a stream.
 * `tasks` is a placeholder for the list of tasks requested to be run from the command line.

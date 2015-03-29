@@ -29,7 +29,7 @@ import tasks
 
 def main():
     # set available command line arguments
-    parser = ArgumentParser(prog='cresbot.py')
+    parser = ArgumentParser(prog='./cresbot.py')
     parser.add_argument('config',
                         help='Set path to config file.')
     parser.add_argument('-t',

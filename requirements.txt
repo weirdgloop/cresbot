@@ -1,0 +1,5 @@
+arrow
+beautifulsoup4
+git+git://github.com/Riamse/ceterach.git@07247e04d90a1fc253cf29270764a15c3ada6045
+schedule
+pyyaml

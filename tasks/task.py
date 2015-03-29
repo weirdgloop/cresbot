@@ -29,14 +29,14 @@ class Task:
     api = None
 
     @abstractmethod
-    def __init__(self, config:dict, file:str):
+    def __init__(self, config:dict, filename:str):
         """Set up api and logger instances for later use.
 
         Arguments:
             config: Config dictionary created on start up.
-            file: The name of the file to be used during logging.
+            filename: The name of the file to be used during logging.
         """
-        self.log = get_logger(config, filepath)
+        self.log = get_logger(config, filename)
         self.api = config.get('api')
 
     @abstractmethod

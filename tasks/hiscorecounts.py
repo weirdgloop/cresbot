@@ -264,6 +264,11 @@ class HiscoreCounts(Task):
         self.log.debug('page: %s, step: %s, reqs: %s, up: %s, found: %s',
                        params['page'], step, reqs, up, found)
 
+        # catch errors with step
+        # should catch errors caused by max-depth exceess early
+        if step < 1:
+            raise CresbotError('Step dropped below 1')
+
         soup = self._get_page(params)
         rows = (x for x in soup.select('div.tableWrap tbody tr') \
                 if not isinstance(x, nstr))

@@ -177,6 +177,8 @@ class HiscoreCounts(Task):
         Returns:
             A string with the updated counts replacing the old counts.
         """
+        global checked
+
         if val_type == 'LEVEL':
             val_type = 2
         elif val_type == 'XP':
@@ -216,6 +218,8 @@ class HiscoreCounts(Task):
             # we skip updating that count, log the error
             # and move onto the next
             try:
+                # make sure checked is being reset before starting the next set of API requests
+                checked = None
                 new_count = self._find_value(params, val_type, val)
             # @todo handle more specific exceptions
             except Exception as e:
@@ -340,9 +344,6 @@ class HiscoreCounts(Task):
                 data.append(rank)
             else:
                 break
-
-        # reset checked for next run
-        checked = None
 
         self.log.info('players: %s, requests: %s.', data[-1], reqs)
         return data[-1]

@@ -8,9 +8,9 @@ api_username          : USERNAME
 api_password          : PASSWORD
 
 # log config
-log_file              : /var/log/cresbot.log
+log_level_stream      : DEBUG
+log_file              : /home/user/cresbot/logs/cresbot.log
 log_level_file        : DEBUG
-log_level_stream      : INFO
 log_email             : false
 log_level_email       : ERROR
 log_email_host        :

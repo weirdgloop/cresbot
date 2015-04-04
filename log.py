@@ -23,24 +23,34 @@ from logging.handlers import SMTPHandler
 def get_logger(config:dict, name:str):
     """Create an instance of `Logger`.
 
-    Args:
+    Arguments:
         config: A dict containing configuration settings.
         name: A string representing the name of the script submitting to
             the log.
 
     Returns:
         An instance of Logger with file and stream handlers.
+
+    Notes:
+        Deleting the log file during idle tme causes logging to malfunction in files where
+        Logger is already bound. Find some way to fix it?
     """
+    no_log = True
 
     log = logging.getLogger(name)
     # required to set default level or nothing is output
     log.setLevel('DEBUG')
+
+    # remove any existing handlers
+    # prevents duplicate entries with task runs
+    log.handlers = []
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                                   '%Y-%m-%d %H:%M:%S')
 
     # optional file logging
     if config.get('log_file', None) is not None:
+        no_log = False
         # @todo have separate logs for each day/task run
         fh = logging.FileHandler(config.get('log_file'))
         fh.setLevel(config.get('log_level_file'))
@@ -49,6 +59,7 @@ def get_logger(config:dict, name:str):
 
     # optional email logging
     if config.get('log_email', False):
+        # no_log = False
         # http://bytes.com/topic/python/answers/760212-examples-logger-using-smtp
         # need to subclass SMTPHandler for gmail support
         pass
@@ -66,12 +77,13 @@ def get_logger(config:dict, name:str):
         log.addHandler(smtp)
         """
 
-
-    # default stream logging
-    sh = logging.StreamHandler()
-    sh.setLevel(config.get('log_level_stream', 'INFO'))
-    sh.setFormatter(formatter)
-    log.addHandler(sh)
+    # backup stream logging
+    if no_log:
+    #if True:
+        sh = logging.StreamHandler()
+        sh.setLevel(config.get('log_level_stream', 'DEBUG'))
+        sh.setFormatter(formatter)
+        log.addHandler(sh)
 
     # prevent duplicate log entries being added
     log.propagate = False

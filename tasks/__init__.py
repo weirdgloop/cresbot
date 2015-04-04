@@ -16,13 +16,13 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
-from time import sleep
+from time import time, sleep
 
 from schedule import Scheduler
 
 from log import get_logger
 import exceptions as exc
-from .hiscorecounts import HiscoreCounts
+from tasks.hiscorecounts import HiscoreCounts
 
 # stored as a dict so specific tasks can be run if desired
 tasks = {
@@ -32,23 +32,31 @@ tasks = {
 def run_task(task, config:dict, log):
     """Run a task.
 
-    Args:
-        config:
-        log:
+    Arguments:
+        task: An instance that implements the Task abstract class.
+        config: Main configuration dictionary created on start up.
+        log: Instance of Logger to log exceptions with.
     """
+    start_time = time()
+
     try:
+        # @todo log how long each task took to complete
+        #       or how long it took to fail
         t = task(config)
         log.info('Starting %s task.', task.__name__)
         t.run()
-        log.info('%s task finished.', task.__name__)
+
+        # convert time to complete into minutes
+        complete_time = int((time() - start_time) / 60)
+        log.info('%s task finished. Task run time:', task.__name__, complete_time)
     except exc.CresbotError as e:
         log.exception(e)
 
 def start_tasks(config:dict):
     """<docs>
 
-    Args:
-        config:
+    Arguments:
+        config: Main configuration dictionary created on start up.
     """
     log = get_logger(config, 'cresbot.tasks')
 

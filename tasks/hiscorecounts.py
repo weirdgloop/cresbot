@@ -29,7 +29,7 @@ from ceterach import exceptions as cetexc
 from bs4 import BeautifulSoup, NavigableString as nstr
 
 import exceptions as crexc
-from .task import Task
+from .task import Task, log_in_out
 
 __all__ = ['HiscoreCounts']
 
@@ -136,6 +136,7 @@ class HiscoreCounts(Task):
         
         return soup
 
+    @log_in_out
     def run(self):
         """Run hiscore counts task."""
         try:
@@ -265,7 +266,7 @@ class HiscoreCounts(Task):
                        params['page'], step, reqs, up, found)
 
         # catch errors with step
-        # should catch errors caused by max-depth exceess early
+        # should catch errors caused by max-depth excess early as well
         if step < 1:
             raise CresbotError('Step dropped below 1')
 
@@ -285,6 +286,7 @@ class HiscoreCounts(Task):
         if int(last_val) >= value:
             if not len(checked):
                 up = True
+            # only increase the step after first request
             else:
                 if up is False and not found:
                     found = True
@@ -335,6 +337,12 @@ class HiscoreCounts(Task):
             # track which pages have already been visited
             checked.append(params['page'])
             params['page'] -= int(step)
+
+            # don't let the page drop below 1
+            if params['page'] < 1:
+                log.warning('page: %s, step: %s', params['page'], step)
+                raise CresbotError('Page number dropped below 1.')
+
             return self._find_value(params, col, value)
 
         # we should be on the correct page, so check every value

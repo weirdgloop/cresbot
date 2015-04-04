@@ -17,8 +17,8 @@
 # ----------------------------------------------------------------------
 
 class CresbotError(Exception):
-	"""<docs>"""
+	"""Main error class for Cresbot."""
 
 if True:
 	class SetupError(CresbotError):
-		"""<docs>"""
+		"""Thrown during inital setup following start up via the command line."""

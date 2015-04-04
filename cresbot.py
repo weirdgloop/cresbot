@@ -28,6 +28,11 @@ from exceptions import SetupError
 import tasks
 
 def main():
+    """Set up configuration and start any required scripts or tasks.
+
+    Raises:
+        SetupError
+    """
     # set available command line arguments
     parser = ArgumentParser(prog='./cresbot.py')
     parser.add_argument('config',
@@ -40,34 +45,41 @@ def main():
                         metavar='task',
                         nargs='*')
 
-    # parse arguments into a dictionary
+    # parse arguments and convert to a dictionary
     args = parser.parse_args()
     args = vars(args)
 
     # load config from file
     config_path = args.pop('config', 0)
 
-    # check file exists first
-    if not os.path.isfile(config_path):
-        raise SetupError('Config file could not be found. Path: ' + config_path)
-
     with open(config_path) as f:
-        config = yaml.load(f)
+        try:
+            config = yaml.load(f)
+        except FileNotFoundError as e:
+            raise SetupError from e
+
         # merge args into config
         config.update(args)
 
     # setup logging
-    log = get_logger(config, 'cresbot')
+    try:
+        log = get_logger(config, 'cresbot')
+    except FileNotFoundError as e:
+        raise SetupError from e
 
     # setup api instance
     api = MediaWiki(config.get('api_url'), config.get('api_config'))
+    # @todo catch errors with API URL here
     logged_in = api.login(config.get('api_username'), config.get('api_password'))
 
     # check login attempt was successful
     if not logged_in:
-        log.error('Incorrect username or password. Username: %s; Password: %s',
+        log.warning('Incorrect username or password. Username: %s; Password: %s',
                   config.get('api_username'), config.get('api_password'))
         raise SetupError('Incorrect password or username in config.')
+
+    # clean up
+    api.logout()
 
     # store in config for convenience
     config.update({'api': api})

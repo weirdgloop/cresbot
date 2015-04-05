@@ -49,18 +49,19 @@ def get_logger(config:dict, name:str):
                                   '%Y-%m-%d %H:%M:%S')
 
     # optional file logging
-    if config.get('log_file', None) is not None:
+    if config.get('log_file') is not None:
         no_log = False
-        # @todo have separate logs for each day/task run
+        # @todo utilise <https://docs.python.org/3.4/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler>
         fh = logging.FileHandler(config.get('log_file'))
-        fh.setLevel(config.get('log_level_file'))
+        fh.setLevel(config.get('log_level_file', 'DEBUG'))
         fh.setFormatter(formatter)
         log.addHandler(fh)
 
     # optional email logging
     if config.get('log_email', False):
         # no_log = False
-        # http://bytes.com/topic/python/answers/760212-examples-logger-using-smtp
+        # <http://bytes.com/topic/python/answers/760212-examples-logger-using-smtp>
+        # <https://docs.python.org/3.4/library/logging.handlers.html#logging.handlers.SMTPHandler>
         # need to subclass SMTPHandler for gmail support
         pass
         """
@@ -79,7 +80,6 @@ def get_logger(config:dict, name:str):
 
     # backup stream logging
     if no_log:
-    #if True:
         sh = logging.StreamHandler()
         sh.setLevel(config.get('log_level_stream', 'DEBUG'))
         sh.setFormatter(formatter)

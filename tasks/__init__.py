@@ -40,20 +40,19 @@ def run_task(task, config:dict, log):
     start_time = time()
 
     try:
-        # @todo log how long each task took to complete
-        #       or how long it took to fail
         t = task(config)
         log.info('Starting %s task.', task.__name__)
         t.run()
 
         # convert time to complete into minutes
         complete_time = int((time() - start_time) / 60)
-        log.info('%s task finished. Task run time:', task.__name__, complete_time)
+        log.info('%s task finished. Task run time : %s minutes.', task.__name__, complete_time)
     except exc.CresbotError as e:
         log.exception(e)
 
 def start_tasks(config:dict):
-    """<docs>
+    """Queue tasks ready for next scheduled run. Also start any requested tasks, depending on
+    configuration options.
 
     Arguments:
         config: Main configuration dictionary created on start up.
@@ -61,6 +60,7 @@ def start_tasks(config:dict):
     log = get_logger(config, 'cresbot.tasks')
 
     # store Scheduler instance for easy references to jobs
+    # <https://github.com/dbader/schedule>
     s = Scheduler()
 
     # queue tasks ready next scheduled run
@@ -71,13 +71,16 @@ def start_tasks(config:dict):
         tasks[name] = job
 
     # check if any tasks should be run on startup
-    log.info('Attempting to run start up task(s).')
+    if len(config.get('tasks')):
+        log.info('Attempting to run start up task(s).')
 
-    if 'all' in config['tasks']:
-        config['tasks'] = tasks.keys()
+        if 'all' in config.get('tasks'):
+            config.update({'tasks': tasks.keys()})
 
-    for task in config['tasks']:
-        tasks[task].run()
+        for task in config.get('tasks'):
+            tasks.get(task).run()
+    else:
+        log.info('No start up tasks found.')
 
     while True:
         s.run_pending()

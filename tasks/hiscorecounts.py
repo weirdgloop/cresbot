@@ -33,6 +33,7 @@ from .task import Task, log_in_out
 
 __all__ = ['HiscoreCounts']
 
+# move these into a static class?
 # minimum xp required for certain lvels
 XP_99 = 13034431
 XP_120 = 104273167
@@ -102,18 +103,16 @@ class HiscoreCounts(Task):
         # throttle requests
         if self.last is not None:
             diff = time() - self.last
-            self.log.debug('last: %s, diff: %s, throttle: %s', self.last, diff, self.throttle)
 
             if diff < self.throttle:
-                sleep(self.throttle - diff)
-        else:
-            self.log.debug('First request')
+                sleep_for = self.throttle - diff
+                sleep(sleep_for)
 
         # normalise any exceptions
         try:
             resp = requests.get(self.url, params=params)
         except (requests.HTTPError, requests.ConnectionError) as e:
-            raise crexc.CresbotError(e)
+            raise crexc.CresbotError from e
             
         self.num_reqs += 1
         self.last = time()
@@ -127,8 +126,7 @@ class HiscoreCounts(Task):
             
             if self.err_time is not None:
                 diff = time() - self.err_time
-                self.log.warning('Time since rate limit was last hit: %s.',
-                                 diff)
+                self.log.warning('Time since rate limit was last hit: %s.', diff)
                 
             self.err_time = time()
             sleep(30)
@@ -145,26 +143,25 @@ class HiscoreCounts(Task):
             text = page.content
         # @todo handle these separately?
         except (cetexc.ApiError, cetexc.CeterachError) as e:
-            self.log.warning('Current counts text count not be found. Error: %s', e)
-            # @todo implement fallback if reasonable
-            raise crexc.CresbotError(e)
-        
-        # @todo error handling?
+            self.log.warning('Current counts text count not be found.')
+            raise crexc.CresbotError from e
+
         text = self.get_count(text, 'count_99s', 99, 'LEVEL')
         text = self.get_count(text, 'count_120s', XP_120, 'XP')
         text = self.get_count(text, 'count_200mxp', XP_MAX, 'XP')
         text = self.get_lowest_ranks(text, 'lowest_ranks')
 
         try:
+            self.log.info('Attempting to update hiscore counts text.')
             # reset the token with each edit
             # otherwise this fails on subsequent runs as it uses the same api instance
             page._api.set_token('edit')
             page.edit(text, 'Updating hiscore counts', bot=True)
         # @todo handle other errors?
         except cetexc.EditError as e:
-            self.log.warning('Could not update hiscore counts. Error: %s', e)
+            self.log.warning('Could not update hiscore counts.')
             self.log.warning(text)
-            raise crexc.CresbotError(e)
+            raise crexc.CresbotError from e
 
     def get_count(self, text:str, count:str, value:int, val_type:str):
         """Look for the last occurance of `value` in each hiscores table and update `text` with it.
@@ -177,6 +174,9 @@ class HiscoreCounts(Task):
 
         Returns:
             A string with the updated counts replacing the old counts.
+
+        Raises:
+            CresbotError
         """
         global checked
 
@@ -185,10 +185,15 @@ class HiscoreCounts(Task):
         elif val_type == 'XP':
             val_type = 3
 
-        # @todo save gathered data into a dict so it can be salvaged if required
-        #       output to yaml file (readable)?
+        # verify val_type is a recognised value
+        if val_type != 2 and val_type != 3:
+            raise crexc.CresbotError('Unrecognised value used for val_type.')
+
         params = copy(self.def_params)
         rgx_table = 'local\s*%s\s*=\s*{(.*?)}' % count
+        # @todo catch errors here
+        #       caused by renaming tables etc.
+        #       will cause errors that cause other tasks to fail
         r_table = re.search(rgx_table, text, flags=re.S)
         old_table = r_table.group(1).strip()
         table = r_table.group(1).strip()
@@ -196,7 +201,7 @@ class HiscoreCounts(Task):
         for i, skill in enumerate(SKILLS):
             if skill == 'overall':
                 # don't run overall for some counts
-                if count in ['count_99s', 'count_120s']:
+                if count in ('count_99s', 'count_120s'):
                     continue
 
                 self.log.info('Getting %s data for %s', value, skill)
@@ -213,15 +218,21 @@ class HiscoreCounts(Task):
 
             # 25 ranks per page
             start_page = math.ceil(int(num.replace(',', '')) / 25)
-            params.update({'table': i, 'page': max(start_page, 1)})
+            params.update({
+                'table': i,
+                'page': max(start_page, 1)
+            })
 
             # if something goes wrong here
-            # we skip updating that count, log the error
+            # skip updating that count, log the error
             # and move onto the next
             try:
                 # make sure checked is being reset before starting the next set of API requests
                 checked = None
                 new_count = self._find_value(params, val_type, val)
+            # @todo log these at then end of the task as well
+            except crexc.CresbotError as e:
+                self.log.exception(e)
             # @todo handle more specific exceptions
             except Exception as e:
                 self.log.exception(e)
@@ -250,6 +261,9 @@ class HiscoreCounts(Task):
 
         Returns:
             An string representing the rank of the last player with `value`.
+
+        Raises:
+            CresbotError
         """
         global checked, step, reqs, up, found
 
@@ -263,12 +277,12 @@ class HiscoreCounts(Task):
         reqs += 1
 
         self.log.debug('page: %s, step: %s, reqs: %s, up: %s, found: %s',
-                       params['page'], step, reqs, up, found)
+                       params.get('page'), step, reqs, up, found)
 
         # catch errors with step
         # should catch errors caused by max-depth excess early as well
         if step < 1:
-            raise CresbotError('Step dropped below 1')
+            raise crexc.CresbotError('Step dropped below 1')
 
         soup = self._get_page(params)
         rows = (x for x in soup.select('div.tableWrap tbody tr') \
@@ -298,12 +312,12 @@ class HiscoreCounts(Task):
 
             # check if the next page has already been visited
             # to stop an infinite loop
-            if (params['page'] + 1) in checked:
+            if (params.get('page') + 1) in checked:
                 rank = trs[-1][0].a.string.strip()
                 return rank
 
             # track which pages have already been visited
-            checked.append(params['page'])
+            checked.append(params.get('page'))
             params['page'] += int(step)
             return self._find_value(params, col, value)
 
@@ -313,7 +327,7 @@ class HiscoreCounts(Task):
 
         if int(first_val) < value:
             # check we're not on the first page (no players have `value`)
-            if params['page'] == 1:
+            if params.get('page') == 1:
                 return '0'
 
             if not len(checked):
@@ -330,18 +344,18 @@ class HiscoreCounts(Task):
 
             # check if the previous page has already been visited
             # to stop an infinite loop
-            if (params['page'] - 1) in checked:
+            if (params.get('page') - 1) in checked:
                 rank = trs[0][0].a.string.strip()
                 return rank
 
             # track which pages have already been visited
-            checked.append(params['page'])
+            checked.append(params.get('page'))
             params['page'] -= int(step)
 
             # don't let the page drop below 1
             if params['page'] < 1:
-                log.warning('page: %s, step: %s', params['page'], step)
-                raise CresbotError('Page number dropped below 1.')
+                log.warning('page: %s, step: %s', params.get('page'), int(step))
+                raise crexc.CresbotError('Page number dropped below 1.')
 
             return self._find_value(params, col, value)
 
@@ -365,8 +379,8 @@ class HiscoreCounts(Task):
         """Get the lowest rank for each skill.
 
         Args:
-            text:
-            table:
+            text: The text containing the lua table to update.
+            table: A string representing the name of the lua table to update.
 
         Returns:
             A string with the previous counts replaced by the new counts.
@@ -398,12 +412,11 @@ class HiscoreCounts(Task):
             lvl = cells[2].a.string.strip()
 
             # update table
-            # @todo don't hardcode the count in this
             table = self.update_count(table, skill + '.rank', rank, 'lowest_ranks')
             table = self.update_count(table, skill, lvl, 'lowest_ranks')
 
-            self.log.info('Minimum level of %s: %s.', skill, lvl)
-            self.log.info('Entry rank for %s: %s.', skill, rank)
+            self.log.debug('Minimum level of %s: %s.', skill, lvl)
+            self.log.debug('Entry rank for %s: %s.', skill, rank)
 
         # update updated time
         table = self.update_count(table, 'updated', self.updated, 'lowest_ranks')
@@ -417,24 +430,26 @@ class HiscoreCounts(Task):
         """Update the value of a key in a lua table.
 
         Args:
-            text:
-            key:
-            val:
+            text: A string containing the text to update.
+            key: The key of the value to update.
+            val: The updated value to replace the existing value.
 
         Returns:
-            A string...
+            A string containing the updated text.
         """
         rgx = self.re_count % key
         match = re.search(rgx, text)
-        # should we handle exceptions caused by the key not existing?
         old = match.group(0)
         new = old.replace(match.group(1), val)
         ret = text.replace(old, new)
 
         # store the updated values in a dict so they can be recovered if necessary
-        if self.new_counts.get(count, None) is None:
-            self.new_counts[count] = {}
+        if self.new_counts.get(count) is None:
+            self.new_counts.update({
+                count: {}
+            })
 
-        self.new_counts[count].update({key: val})
+        self.new_counts.get(count) \
+                       .update({key: val})
         
         return ret

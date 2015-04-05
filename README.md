@@ -31,7 +31,8 @@ optional arguments:
                         delimited by a space. Allowed task names:
                         `hiscorecounts`.
 ```
-You may have to mark `cresbot.py` as executable, which can be done by running `chmod +x cresbot.py`. For Windows users, the usage is `python cresbot.py ...`.
+* You may have to mark `cresbot.py` as executable, which can be done by running `chmod +x cresbot.py`.
+* For Windows users, the usage is `python cresbot.py [-h] [-t [task [task ...]]] config`.
 
 ## Config
 A sample config file can be found in [config-sample.yaml](https://github.com/onei/cresbot/blob/master/config-sample.yaml). This file should be altered for use and used during command line usage. This is normally saved within the cresbot directory.

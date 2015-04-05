@@ -69,8 +69,12 @@ def main():
 
     # setup api instance
     api = MediaWiki(config.get('api_url'), config.get('api_config'))
-    # @todo catch errors with API URL here
-    logged_in = api.login(config.get('api_username'), config.get('api_password'))
+
+    try:
+        logged_in = api.login(config.get('api_username'), config.get('api_password'))
+    # @todo catch more specific exception
+    except Exception as e:
+        raise SetupError from e
 
     # check login attempt was successful
     if not logged_in:

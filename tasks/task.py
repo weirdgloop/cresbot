@@ -24,11 +24,11 @@ def log_in_out(func):
     """Logs in with a given username and password at the start of a task and
     logs out at the end of the task.
     """
-    def wrapper(*args, **kwargs):
-        s = args[0]
-        s.api.login(s.config.get('api_username'), s.config.get('api_password'))
-        f = func(*args, **kwargs)
-        s.api.logout()
+    def wrapper(self, *args, **kwargs):
+        conf = self.config
+        self.api.login(conf.get('api_username'), conf.get('api_password'))
+        func(self, *args, **kwargs)
+        self.api.logout()
 
     return wrapper
 
@@ -49,9 +49,12 @@ class Task:
             config: Config dictionary created on start up.
             filename: The name of the file to be used during logging.
         """
+        # store config, mainly for use in `log_in_out`
         self.config = config
-        self.log = get_logger(config, filename)
+
+        # store api and log references
         self.api = config.get('api')
+        self.log = get_logger(config, filename)
 
     @abstractmethod
     def run(self):

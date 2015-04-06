@@ -30,10 +30,6 @@ def get_logger(config:dict, name:str):
 
     Returns:
         An instance of Logger with file and stream handlers.
-
-    Notes:
-        Deleting the log file during idle tme causes logging to malfunction in files where
-        Logger is already bound. Find some way to fix it?
     """
     no_log = True
 
@@ -48,37 +44,53 @@ def get_logger(config:dict, name:str):
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                                   '%Y-%m-%d %H:%M:%S')
 
-    # optional file logging
+    # file logging
     if config.get('log_file') is not None:
         no_log = False
-        # @todo utilise <https://docs.python.org/3.4/library/logging.handlers.html#logging.handlers.TimedRotatingFileHandler>
+
         fh = logging.FileHandler(config.get('log_file'))
-        fh.setLevel(config.get('log_level_file', 'DEBUG'))
+        fh.setLevel(config.get('log_file_level', 'DEBUG'))
         fh.setFormatter(formatter)
         log.addHandler(fh)
 
-    # optional email logging
+    # email logging
     if config.get('log_email', False):
-        # no_log = False
-        # <http://bytes.com/topic/python/answers/760212-examples-logger-using-smtp>
-        # <https://docs.python.org/3.4/library/logging.handlers.html#logging.handlers.SMTPHandler>
-        # need to subclass SMTPHandler for gmail support
-        pass
-        """
-        smtp = SMTPHandler(
-            mailhost = tuple(config.get('log_email_host')),
+        no_log = False
+
+        mailhost = config.get('log_email_mailhost')
+        credentials = config.get('log_email_credentials')
+
+        # bug workaround, see <https://bugs.python.org/issue22646>
+        # fixed in python 3.4, see <https://hg.python.org/cpython/rev/d15708f13266>
+        # should be fixed, but don't chance it when python is packaged with OS's
+        if isinstance(mailhost, list):
+            mailhost = tuple(mailhost)
+        if isinstance(credentials, list):
+            credentials = tuple(credentials)
+
+        mh = logging.handlers.SMTPHandler(
+            mailhost = mailhost,
             fromaddr = config.get('log_email_from'),
             toaddrs = config.get('log_email_to'),
             subject = config.get('log_email_subject'),
-             # @todo move this to a single config option
-            credentials = (config.get('log_email_username'), config.get('log_email_password'))
+            credentials = credentials,
+            secure = config.get('log_email_secure')
         )
-        smtp.setLevel(config.get('log_level_email'))
-        smtp.setFormatter(formatter)
-        log.addHandler(smtp)
-        """
 
-    # backup stream logging
+        mh.setLevel(config.get('log_level_email', 'ERROR'))
+        mh.setFormatter(logging.Formatter('''
+            Message level: %(levelname)s
+            Location:      %(pathname)s:%(lineno)d
+            Time:          %(asctime)s
+
+            Message:
+
+            %(message)s
+        '''))
+        log.addHandler(mh)
+
+    # backup stream handler
+    # only added of no other logging is enabled
     if no_log:
         sh = logging.StreamHandler()
         sh.setLevel(config.get('log_level_stream', 'DEBUG'))

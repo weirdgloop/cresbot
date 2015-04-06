@@ -73,13 +73,12 @@ def main():
     try:
         logged_in = api.login(config.get('api_username'), config.get('api_password'))
     # @todo catch more specific exception
+    #       ApiError?
     except Exception as e:
         raise SetupError from e
 
     # check login attempt was successful
     if not logged_in:
-        log.warning('Incorrect username or password. Username: %s; Password: %s',
-                  config.get('api_username'), config.get('api_password'))
         raise SetupError('Incorrect password or username in config.')
 
     # clean up

@@ -1,19 +1,18 @@
-%YAML 1.1 # Cresbot config file
+%YAML 1.1
 ---
-# api config
+# to test, see <http://yaml-online-parser.appspot.com/>
+
 api                   : null
 api_config            : {defaults: {maxlag: 5}}
 api_url               : http://communitytest.wikia.com/api.php
 api_username          : USERNAME
 api_password          : PASSWORD
 
-# log config
-log_level_stream      : DEBUG
-log_file              : /home/user/cresbot/logs/cresbot.log
-log_level_file        : DEBUG
-log_email             : false
-log_level_email       : ERROR
-log_email_host        :
+log_file              : /home/username/cresbot/logs/cresbot.log
+log_file_level        : DEBUG
+log_email             : true
+log_email_level       : ERROR
+log_email_mailhost    :
     - smtp.gmail.com
     - 587
 log_email_from        : foo@bar.com
@@ -23,6 +22,6 @@ log_email_subject     : Cresbot Error
 log_email_credentials :
     - foo@bar.com
     - PASSWORD
+log_email_secure      : []
 
-# task config
 tasks                 : null

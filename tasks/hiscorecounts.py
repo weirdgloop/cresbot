@@ -29,7 +29,7 @@ from ceterach import exceptions as cetexc
 from bs4 import BeautifulSoup, NavigableString as nstr
 
 import exceptions as crexc
-from .task import Task, log_in_out
+from tasks.task import Task, log_in_out
 
 __all__ = ['HiscoreCounts']
 
@@ -122,7 +122,7 @@ class HiscoreCounts(Task):
 
         # handle ratelimit
         if len(errors):
-            self.log.warning('Rate limit hit after %s pages.')
+            self.log.error('Rate limit hit after %s pages.')
             
             if self.err_time is not None:
                 diff = time() - self.err_time

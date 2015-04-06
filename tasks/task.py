@@ -18,7 +18,7 @@
 
 from abc import ABCMeta, abstractmethod
 
-from log import get_logger
+from utils.log import get_logger
 
 def log_in_out(func):
     """Logs in with a given username and password at the start of a task and

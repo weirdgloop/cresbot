@@ -43,11 +43,10 @@ api_url               : http://communitytest.wikia.com/api.php
 api_username          : USERNAME
 api_password          : PASSWORD
 
-log_level_stream      : DEBUG
 log_file              : /home/username/cresbot/logs/cresbot.log
-log_level_file        : DEBUG
+log_file_level        : DEBUG
 log_email             : false
-log_level_email       : ERROR
+log_email_level       : ERROR
 log_email_mailhost    :
     - smtp.gmail.com
     - 587
@@ -71,9 +70,9 @@ tasks                 : null
 * `api_username` is the username of the account to log into the MediaWiki API with.
 * `api_password` is the password of the account to log into the MediaWiki API with.
 * `log_file` is the location of the log file used by cresbot. Remember to crate the directory before running the script to avoid errors. This is normally the logs subdirectory within the cresbot directory.
-* `log_level_file` is the log level setting used when logging to a file.
+* `log_file_level` is the log level setting used when logging to a file.
 * `log_email` is a boolean to enable email logging, normally used exclusively for exceptions. This should be set to either `true` or `false`.
-* `log_level_email` is the log level setting used when logging via emails. It is strongly recommended to leave this as `ERROR`.
+* `log_email_level` is the log level setting used when logging via emails. It is strongly recommended to leave this as `ERROR`.
 * `log_email_mailhost` is the mailhost to send the email from. This should either simply be the name of the host, e.g. `smtp.gmail.com`, or a list containing the host and the port (see example above).
 * `log_email_from` is the email address to send the email from.
 * `log_email_to` is a list of email addresses to send emails to.

@@ -17,14 +17,20 @@
 # along with Cresbot.  If not, see <http://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 
+"""
+Command line usage docs
+
+Config docs (generate config-sample.yaml from this?)
+"""
+
 import os
 from argparse import ArgumentParser
 
 import yaml
 from ceterach.api import MediaWiki
 
-from log import get_logger
-from exceptions import SetupError
+from utils.log import get_logger
+from utils.exceptions import SetupError
 import tasks
 
 def main():

@@ -28,7 +28,7 @@ from ceterach.api import MediaWiki
 from ceterach import exceptions as cetexc
 from bs4 import BeautifulSoup, NavigableString as nstr
 
-import exceptions as crexc
+import utils.exceptions as crexc
 from tasks.task import Task, log_in_out
 
 __all__ = ['HiscoreCounts']

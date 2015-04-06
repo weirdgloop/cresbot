@@ -20,8 +20,8 @@ from time import time, sleep
 
 from schedule import Scheduler
 
-from log import get_logger
-import exceptions as exc
+from utils.log import get_logger
+import utils.exceptions as crexc
 from tasks.hiscorecounts import HiscoreCounts
 
 # stored as a dict so specific tasks can be run if desired
@@ -47,7 +47,7 @@ def run_task(task, config:dict, log):
         # convert time to complete into minutes
         complete_time = int((time() - start_time) / 60)
         log.info('%s task finished. Task run time : %s minutes.', task.__name__, complete_time)
-    except exc.CresbotError as e:
+    except crexc.CresbotError as e:
         log.exception(e)
 
 def start_tasks(config:dict):
@@ -85,13 +85,3 @@ def start_tasks(config:dict):
     while True:
         s.run_pending()
         sleep(1)
-
-
-
-
-    
-
-
-
-    
-    

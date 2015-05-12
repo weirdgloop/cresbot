@@ -71,7 +71,7 @@ def main():
     try:
         log = get_logger(config, 'cresbot')
     except FileNotFoundError as e:
-        raise SetupError from e
+        raise SetupError('Log file could not be found. Please check the directory exists.') from e
 
     # setup api instance
     api = MediaWiki(config.get('api_url'), config.get('api_config'))
@@ -81,7 +81,7 @@ def main():
     # @todo catch more specific exception
     #       ApiError?
     except Exception as e:
-        raise SetupError from e
+        raise SetupError('MediaWiki API URL could not be verified. Please check your config file.') from e
 
     # check login attempt was successful
     if not logged_in:

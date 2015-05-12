@@ -80,6 +80,9 @@ class HiscoreCounts(Task):
     # once all data has been gathered
     new_counts = {}
 
+    # storage for details of errors thrown during updating individual error counts
+    update_errors = []
+
     def __init__(self, config:dict):
         """Set up the HiscoreCounts task."""
         super().__init__(config, 'cresbot.tasks.hiscorecounts')
@@ -112,7 +115,7 @@ class HiscoreCounts(Task):
         try:
             resp = requests.get(self.url, params=params)
         except (requests.HTTPError, requests.ConnectionError) as e:
-            raise crexc.CresbotError from e
+            raise crexc.CresbotError('Hiscores page request failed.') from e
             
         self.num_reqs += 1
         self.last = time()
@@ -144,12 +147,15 @@ class HiscoreCounts(Task):
         # @todo handle these separately?
         except (cetexc.ApiError, cetexc.CeterachError) as e:
             self.log.warning('Current counts text count not be found.')
-            raise crexc.CresbotError from e
+            raise crexc.CresbotError('Current counts text could not be found.') from e
 
         text = self.get_count(text, 'count_99s', 99, 'LEVEL')
         text = self.get_count(text, 'count_120s', XP_120, 'XP')
         text = self.get_count(text, 'count_200mxp', XP_MAX, 'XP')
         text = self.get_lowest_ranks(text, 'lowest_ranks')
+
+        # @todo test logging of lists
+        # self.log.warning(self.update_errors)
 
         try:
             self.log.info('Attempting to update hiscore counts text.')
@@ -161,7 +167,7 @@ class HiscoreCounts(Task):
         except cetexc.EditError as e:
             self.log.warning('Could not update hiscore counts.')
             self.log.warning(text)
-            raise crexc.CresbotError from e
+            raise crexc.CresbotError('Failed to update hiscore counts.') from e
 
     def get_count(self, text:str, count:str, value:int, val_type:str):
         """Look for the last occurance of `value` in each hiscores table and update `text` with it.
@@ -230,11 +236,13 @@ class HiscoreCounts(Task):
                 # make sure checked is being reset before starting the next set of API requests
                 checked = None
                 new_count = self._find_value(params, val_type, val)
-            # @todo log these at then end of the task as well
             except crexc.CresbotError as e:
+                self.update_errors.append(e)
                 self.log.exception(e)
             # @todo handle more specific exceptions
             except Exception as e:
+                self.update_errors.append(e)
+                self.log.warning('Unhandled exception type')
                 self.log.exception(e)
             else:
                 table = self.update_count(table, skill, new_count, count)

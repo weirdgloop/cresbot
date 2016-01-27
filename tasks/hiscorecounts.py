@@ -45,7 +45,7 @@ SKILLS = ['overall', 'attack', 'defence', 'strength', 'constitution',
           'fletching', 'fishing', 'firemaking', 'crafting', 'smithing',
           'mining', 'herblore', 'agility', 'thieving', 'slayer',
           'farming', 'runecrafting', 'hunter', 'construction',
-          'summoning', 'dungeoneering', 'divination']
+          'summoning', 'dungeoneering', 'divination', 'invention']
 
 # global vars used in `_find_value`
 checked = None

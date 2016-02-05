@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ----------------------------------------------------------------------
-# Copyright (c) 2015 Matthew Dowdell <mdowdell244@gmail.com>.
+# Copyright (c) 2015-2016 Matthew Dowdell <mdowdell244@gmail.com>.
 # This file is part of Cresbot.
 #
 # Cresbot is free software: you can redistribute it and/or modify

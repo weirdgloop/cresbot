@@ -37,6 +37,8 @@ __all__ = ['HiscoreCounts']
 # minimum xp required for certain lvels
 XP_99 = 13034431
 XP_120 = 104273167
+XP_99_ELITE = 36073511
+XP_120_ELITE = 80618654
 XP_MAX = 200000000
 
 # current list of skills
@@ -212,6 +214,13 @@ class HiscoreCounts(Task):
 
                 self.log.info('Getting %s data for %s', value, skill)
                 val = value * (len(SKILLS) - 1)
+            elif skill == 'invention' and count == 'count_120s':
+                # only need to modify this for level 120
+                if val_type == 3:
+                    val = XP_120_ELITE
+                
+                # output the same log message for sanity
+                self.log.info('Getting %s data for %s', value, skill)
             else:
                 self.log.info('Getting %s data for %s', value, skill)
                 val = value

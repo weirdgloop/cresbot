@@ -1,5 +1,6 @@
+# python things
 __pycache__
+venv
 
 # things used in production
-logs/*
-config.yaml
+config.toml

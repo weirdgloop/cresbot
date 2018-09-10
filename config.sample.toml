@@ -1,0 +1,3 @@
+api_path = 'https://rs.weirdgloop.org/api.php'
+username = 'username@name'
+password = 'password_token'

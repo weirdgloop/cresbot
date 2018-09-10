@@ -19,7 +19,7 @@ from lib.hiscores import Hiscores, Skill
 from lib.exception import MediaWikiError, HiscoresError
 
 
-LOG_PATH_FMT = '/var/log/hiscorecounts/hiscorecounts-{}.log'
+LOG_FILE_FMT = 'hiscorecounts-{}.log'
 PAGE_NAME = 'Module:Hiscore counts'
 
 
@@ -28,14 +28,14 @@ def main():
     Program entry point.
     """
     args = parse_args()
-    setup_logging(args)
+    config = Config.from_toml(args.config)
+    setup_logging(args, config)
 
     hiscores = Hiscores()
     logger = logging.getLogger(__name__)
     start = datetime.utcnow()
 
     try:
-        config = Config.from_toml(args.config)
         cur_counts = get_current_counts(config)
         new_counts = update_counts(cur_counts, hiscores)
 
@@ -67,7 +67,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def setup_logging(args: argparse.Namespace):
+def setup_logging(args: argparse.Namespace, config: Config):
     """
     """
     if args.quiet:
@@ -86,7 +86,8 @@ def setup_logging(args: argparse.Namespace):
     formatter = logging.Formatter(log_format, datefmt=date_format)
 
     cur_date = datetime.utcnow()
-    log_path = LOG_PATH_FMT.format(cur_date.strftime('%Y-%m-%d_%H-%M-%S'))
+    log_path = os.path.join(config.log_dir,
+                            LOG_FILE_FMT.format(cur_date.strftime('%Y-%m-%d_%H-%M-%S')))
 
     fh = logging.FileHandler(filename=log_path)
 

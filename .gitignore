@@ -4,3 +4,6 @@ venv
 
 # things used in production
 config.toml
+
+# logs
+logs/*.log

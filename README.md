@@ -48,6 +48,8 @@ optional arguments:
 A sample config file can be found in `config.sample.toml`. This file should be altered for use and used during command line usage. This should be saved within the cresbot directory as `config.toml`.
 
 ```toml
+# the logs directory to use
+log_dir = '/path/to/cresbot/logs'
 # the URI for the wiki's api.php endpoint
 api_path = 'https://rs.weirdgloop.org/api.php'
 # the username as provided by Special:BotPasswords
@@ -61,6 +63,9 @@ Crontab setup should be along the following lines (use `crontab -e` to edit):
 # need to use bash as the shell so source works
 SHELL=/bin/bash
 
-0 10 * * * cd /path/to/cresbot && source ./venv/bin/activate && ./hiscorecounts.py -c ./config.toml -v
+# run hiscore counts updater ever day at midnight
+0 0 * * * cd /path/to/cresbot && source ./venv/bin/activate && ./hiscorecounts.py -c ./config.toml -v
 
+# manage logs
+0 12 * * * cd /path/to/cresbot && ./manage-logs.sh
 ```

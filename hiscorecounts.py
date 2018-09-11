@@ -45,6 +45,11 @@ def main():
     else:
         logger.info('Hiscore counts completed successfully')
     finally:
+        end = datetime.utcnow()
+        # TODO: write this to file
+        logger.info('STATS: hiscores requests: %s, hiscore errors: %s, end_delay: %s, total_time: %s',
+                    hiscores.total_requests, hiscores.error_requests, hiscores.delay,
+                    str(end - start))
         # TODO: update stats
         # TODO: keep track of errors found while getting new counts
         pass

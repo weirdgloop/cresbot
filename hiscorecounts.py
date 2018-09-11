@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-from lib.api import Api
+from lib.mediawiki import Api
 from lib.config import Config
 from lib.hiscores import Hiscores, Skill
 from lib.exception import MediaWikiError, HiscoresError

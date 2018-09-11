@@ -1,7 +1,6 @@
-cresbot
-=======
+# cresbot
 
-This is a MediaWiki bot written in Python, designed for use on the RuneScape Wiki.
+This is a MediaWiki bot written in Python, designed for use on the [RuneScape Wiki](https://rs.weirdgloop.org).
 
 ## Installing
 To install, simply clone this repository via git:
@@ -14,6 +13,7 @@ Set the following environment variables:
 export LANG="en_GB.UTF-8"
 export LC_ALL="en_GB.UTF-8"
 ```
+It may be prudent to set these in your `~/.bashrc` if they aren't already defined.
 
 Create and activate a virtual environment:
 ```
@@ -32,7 +32,7 @@ Note that this is only tested with the latest version of each dependency. Older 
 Cresbot provides a set of scripts to be used for regular tasks on the wiki.
 
 ### Hiscorecounts
-Hiscorecounts update `Module:Hiscore counts` on the wiki.
+Hiscorecounts updates [Module:Hiscore counts](https://rs.weirdgloop.org/w/Module:Hiscore_counts) on the wiki.
 
 ```
 usage: hiscorecounts.py [-h] -c CONFIG [-v | -q]
@@ -45,13 +45,22 @@ optional arguments:
 ```
 
 ## Config
-A sample config file can be found in `config.sample.toml`. This file should be altered for use and used during command line usage. This is normally saved within the cresbot directory.
+A sample config file can be found in `config.sample.toml`. This file should be altered for use and used during command line usage. This should be saved within the cresbot directory as `config.toml`.
 
 ```toml
-# the URI for the wii's api.php endpoint
+# the URI for the wiki's api.php endpoint
 api_path = 'https://rs.weirdgloop.org/api.php'
 # the username as provided by Special:BotPasswords
 username = 'username@name'
 # the password as provided by Special:BotPasswords
 password = 'password_token'
+```
+
+Crontab setup should be along the following lines (use `crontab -e` to edit):
+```
+# need to use bash as the shell so source works
+SHELL=/bin/bash
+
+0 10 * * * cd /path/to/cresbot && source ./venv/bin/activate && ./hiscorecounts.py -c ./config.toml -v
+
 ```

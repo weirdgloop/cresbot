@@ -6,4 +6,4 @@ venv
 config.toml
 
 # logs
-logs/*.log
+logs

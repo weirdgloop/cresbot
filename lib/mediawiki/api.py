@@ -8,7 +8,7 @@ import logging
 
 import requests
 
-from .exception import MediaWikiError
+from ..exception import MediaWikiError
 
 
 LOGGER = logging.getLogger(__name__)

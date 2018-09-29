@@ -5,159 +5,264 @@
 
 from json.decoder import JSONDecodeError
 import logging
+from pprint import pprint
 
 import requests
 
-from ..exception import MediaWikiError
+from ..exception import MediaWikiError, LoginError, EditError
 
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Api:
-	"""
-	"""
+    """
+    A class to be used to interact with a single MediaWiki instance.
+    """
 
-	def __init__(self, username: str, password: str, api_path: str):
-		"""
-		"""
-		self.username = username
-		self.password = password
-		self.api_path = api_path
+    def __init__(self, username: str, password: str, api_path: str):
+        """
+        Create a new instance of ``Api``.
 
-		self.session = requests.Session()
-		self.assert_param = None
+        :param str username: The username to log in with. This is not used immediately,
+            but during ``login``.
+        :param str password: The password for the given username. On recent versions of
+            MediaWiki, this should be generated using ``Special:BotPasswords``. See the MediaWiki
+            documentation for more details.
+        :param str api_path: A string representing the MediaWiki instance to interact with.
+            Should contain the protocol, e.g. ``https://`` and the API endpoint, e.g. ``/api.php``.
+        """
+        self.username = username
+        self.password = password
+        self.api_path = api_path
 
-	def __enter__(self):
-		"""
-		"""
-		self.login()
+        self.session = requests.Session()
+        self.assert_param = None
+        self.is_wikia = 'wikia.com' in api_path or 'fandom.com' in api_path
 
-	def __exit__(self, err_type, err_val, err_tb):
-		"""
-		"""
-		self.logout()
+        self.session.headers.update({'User-Agent': 'Cresbot v1.0.0'})
 
-	def __call(self, **kwargs) -> dict:
-		"""
-		"""
-		is_get = kwargs['action'] in ('query',)
-		kwargs['format'] = 'json'
+    def __enter__(self):
+        """
+        Log into the given MediaWiki instance.
 
-		if self.assert_param is not None:
-			kwargs['assert'] = self.assert_param
+        Example::
 
-		req = getattr(self.session, 'get' if is_get else 'post')
-		res = req(self.api_path, **{'params' if is_get else 'data': kwargs})
+            api = Api(username='Example', password='secret', api_path='https://example.wiki/api.php')
 
-		# only log get requests to avoid logging sensitive data
-		if is_get:
-			LOGGER.debug('Requested: %s', res.url)
+            with api:
+                # logged in
 
-		try:
-			res.encoding = 'utf-8-sig'
-			ret = res.json()
-		except JSONDecodeError as exc:
-			LOGGER.exception(exc)
-			raise MediaWikiError('Unable to decode response: {!s}'.format(res.text)) from exc
+            # logged out
+        """
+        self.login()
 
-		# TODO: check for errors here
+    def __exit__(self, err_type, err_val, err_tb):
+        """
+        """
+        self.logout()
 
-		return ret
+    def __call(self, **kwargs) -> dict:
+        """
+        """
+        is_get = kwargs['action'] in ('query',)
+        kwargs['format'] = 'json'
 
-	def get_token(self, token = 'csrf'):
-		"""
-		Get a token from the API.
+        if self.assert_param is not None and not self.is_wikia:
+            kwargs['assert'] = self.assert_param
 
-		:param token_type: A string or list, tuple or set of strings containing the tokens
-			required. Valid token types are: 'createaccount', 'csrf', 'login', 'patrol',
-			'rollback', 'userrights' and 'watch'. The default is 'csrf'. If multiple tokens are
-			wanted, either provide a string with a '|' character separating the different types or
-			provide a list of the different token types.
+        req = getattr(self.session, 'get' if is_get else 'post')
+        res = req(self.api_path, **{'params' if is_get else 'data': kwargs})
 
-		:return: If a single token was requested, the token value will be returned. If multiple
-			tokens were requested a dictionary containing them will be returned, e.g.::
+        # only log get requests to avoid logging sensitive data
+        if is_get:
+            LOGGER.debug('Requested: %s', res.url)
 
-				{
-					"watchtoken": "<token value>",
-            		"patroltoken": "<token value>",
-				}
-		"""
-		if isinstance(token, (list, tuple, set)):
-			token = '|'.join(token)
+        try:
+            ret = res.json()
+        except JSONDecodeError as exc:
+            LOGGER.exception(exc)
+            raise MediaWikiError('Unable to decode response: {!r}'.format(res.text)) from exc
 
-		res = self.__call(action='query', meta='tokens', type=token)
-		tokens = res['query']['tokens']
+        # TODO: check for errors here
 
-		if len(tokens.keys()) == 1:
-			return list(tokens.values())[0]
+        return ret
 
-		return tokens
+    def get_token(self, token = 'csrf', is_wikia: bool = False):
+        """
+        Get a token from the API.
 
-	def login(self, is_bot: bool = False):
-		"""
-		Logs into the API using the credentials supplied in the class constructor. This uses the
-		old action=login endpoint which requires a password to be set up using Special:BotPasswords
-		in newer version of MediaWiki.
+        If the API endpoint is for wikia, i.e. it comtains ``wikia.com`` or ``fandom.com`` the
+        option for reqesting multiple tokens is disabled.
 
-		:param bool is_bot: Indicates whether the credentials are for a bot or not. If ``True``,
-			subsequent requests will pass ``assert='bot'`` with all API requests. If ``False``,
-			subsequent requests will pass ``assert='user'`` with all API requests. This will be
-			continued until ``logout`` is called.
-		"""
-		LOGGER.debug('Logging into %r as %r', self.api_path, self.username)
+        :param token_type: A string or list, tuple or set of strings containing the tokens
+            required. Valid token types are: 'createaccount', 'csrf', 'login', 'patrol',
+            'rollback', 'userrights' and 'watch'. The default is 'csrf'. If multiple tokens are
+            wanted, either provide a string with a '|' character separating the different types or
+            provide a list of the different token types.
 
-		token = self.get_token('login')
-		res = self.__call(action='login',
-			              lgname=self.username,
-			              lgpassword=self.password,
-			              lgtoken=token)
+        :return: If a single token was requested, the token value will be returned. If multiple
+            tokens were requested a dictionary containing them will be returned, e.g.::
 
-		if res['login']['result'] != 'Success':
-			raise LoginError('Attempted login failed with: {result}: {reason}'
-				             .format(**res['login']))
+                {
+                    "watchtoken": "<token value>",
+                    "patroltoken": "<token value>",
+                }
+        """
+        if self.is_wikia:
+            if not isinstance(token, str):
+                raise ValueError('Cannot use mutliple token types when getting tokens from Wikia.')
 
-		self.assert_param = 'bot' if is_bot else 'user'
+            if token == 'csrf':
+                token = 'edit'
 
-	def logout(self):
-		"""
-		Logs out of the API.
-		"""
-		LOGGER.debug('Logging out of %r as %r', self.api_path, self.username)
-		self.__call(action='logout')
-		self.assert_param = None
+            raise NotImplementedError()
 
-	def get_page_content(self, pagename: str) -> str:
-		"""
-		"""
-		LOGGER.debug('Requesting page content of %r', pagename)
-		res = self.__call(action='query',
-			              prop='revisions',
-			              titles=pagename,
-			              rvprop='content')
+        else:
+            if isinstance(token, (list, tuple, set)):
+                token = '|'.join(token)
 
-		try:
-			pages = res['query']['pages']
-			content = pages[list(pages.keys())[0]]['revisions'][0]['*']
-		# TODO: make this better
-		except KeyError as exc:
-			raise MediaWikiError(res) from exc
-		else:
-			return content
+            res = self.__call(action='query', meta='tokens', type=token)
+            tokens = res['query']['tokens']
 
-	def edit_page(self, pagename: str, text: str, summary: str = ''):
-		"""
-		"""
-		token = self.get_token()
+            if len(tokens.keys()) == 1:
+                return list(tokens.values())[0]
 
-		res = self.__call(action='edit',
-						  title=pagename,
-						  summary=summary,
-						  text=text,
-						  token=token)
+            return tokens
 
-		try:
-			if res['edit']['result'] != 'Success':
-				raise EditError('Edit failed: %s', res)
-		except KeyError:
-			raise MediaWikiError('Unexpected response for edit: %s', res)
+    def login(self, is_bot: bool = False):
+        """
+        Logs into the API using the credentials supplied in the class constructor. This uses the
+        old action=login endpoint which requires a password to be set up using Special:BotPasswords
+        in newer version of MediaWiki.
+
+        :param bool is_bot: Indicates whether the credentials are for a bot or not. If ``True``,
+            subsequent requests will pass ``assert='bot'`` with all API requests. If ``False``,
+            subsequent requests will pass ``assert='user'`` with all API requests. This will be
+            continued until ``logout`` is called. Assertions are not available when interacting
+            with a Wikia wiki.
+        """
+        LOGGER.debug('Logging into %r as %r', self.api_path, self.username)
+        params = {'action': 'login',
+                  'lgname': self.username,
+                  'lgpassword': self.password}
+
+        if self.is_wikia:
+            res = self.__call(**params)
+
+            if res['login']['result'] == 'NeedToken':
+                params['lgtoken'] = res['login']['token']
+            else:
+                msg = ('Attempted login failed with: {result}: {reason}'
+                       .format(**res['login']))
+                raise LoginError(msg)
+
+        else:
+            token = self.get_token('login')
+            params['lgtoken'] = token
+
+        res = self.__call(**params)
+
+        if res['login']['result'] != 'Success':
+            msg = ('Attempted login failed with: {result}: {reason}'
+                   .format(**res['login']))
+            raise LoginError(msg)
+
+        self.assert_param = 'bot' if is_bot else 'user'
+
+    def logout(self):
+        """
+        Logs out of the API.
+        """
+        LOGGER.debug('Logging out of %r as %r', self.api_path, self.username)
+        self.__call(action='logout')
+        self.assert_param = None
+
+    def iterator(self, path: str = None, **kwargs):
+        """
+        Generator for ``action=query`` requests.
+
+        This accepts keyword arguments representing the additional parameters passed to
+        ``action=query``. However, if ``query-continue`` exists in the response, it will
+        automatically make the next call and continue yielding the results. These results are
+        found by navigating through the return JSON until it find multiple keys in a sub-dictionary
+        of the ``query`` key, which usually indicates the results that are desired.
+
+        Example::
+
+            api = Api(username='Example', password='secret', api_path='https://example.wiki/api.php')
+
+            # find all pages in the mainspace
+            for page in api.iterator(list='allpages', apnamespace=0, aplimit=max'):
+                print(page['title'])
+
+
+        :param str path:
+        :param **kwargs: Key-value arguments representing the parameters to be passed to the API
+            call. ``action=query`` is set automatically and cannot be overridden. For documentation
+            on what other arguments can be provided see the API documentation for you MediaWiki
+            installation.
+        """
+        kwargs['action'] = 'query'
+        res = self.__call(**kwargs)
+        query = res['query']
+
+        while isinstance(query, dict) and len(query.keys()) == 1:
+            query = query[list(query.keys())[0]]
+
+            if not isinstance(query, dict):
+                break
+
+        if isinstance(query, dict) and isinstance(path, str):
+            for key in path.split('/'):
+                if key in query:
+                    query = query[key]
+
+        if isinstance(query, list):
+            for item in query:
+                yield item
+        else:
+            yield query
+
+        if 'query-continue' in res:
+            from_param = res['query-continue'][list(res['query-continue'].keys())[0]]
+            kwargs.update(from_param)
+            kwargs['path'] = path
+
+            yield from self.iterator(**kwargs)
+
+    def get_page_content(self, pagename: str) -> str:
+        """
+        """
+        LOGGER.debug('Requesting page content of %r', pagename)
+        res = self.__call(action='query',
+                          prop='revisions',
+                          titles=pagename,
+                          rvprop='content')
+
+        try:
+            pages = res['query']['pages']
+            content = pages[list(pages.keys())[0]]['revisions'][0]['*']
+        # TODO: make this better
+        except KeyError as exc:
+            raise MediaWikiError(res) from exc
+        else:
+            return content
+
+    def edit_page(self, pagename: str, text: str, summary: str = ''):
+        """
+        """
+        token = self.get_token()
+
+        res = self.__call(action='edit',
+                          title=pagename,
+                          summary=summary,
+                          text=text,
+                          token=token)
+
+        try:
+            if res['edit']['result'] != 'Success':
+                # TODO: improve this
+                raise EditError('Edit failed: %s', res)
+        except KeyError:
+            raise MediaWikiError('Unexpected response for edit: %s', res)

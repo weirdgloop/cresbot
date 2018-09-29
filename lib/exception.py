@@ -23,5 +23,29 @@ if True:
 			class LogoutError(AuthError):
 				pass
 
+		class EditError(MediaWikiError):
+			pass
+
 	class HiscoresError(CresbotError):
 		pass
+
+	class RSWikiError(CresbotError):
+		pass
+
+	if True:
+		class ExchangeError(RSWikiError):
+			"""
+			For errors thrown by exchange libraries.
+			"""
+			pass
+
+		if True:
+			class ExchangeTemplateMissingError(ExchangeError):
+				"""
+				"""
+				pass
+
+			class ExchangeTemplateConvertedError(ExchangeError):
+				"""
+				"""
+				pass

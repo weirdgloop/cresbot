@@ -178,6 +178,21 @@ class Api:
         self.__call(action='logout')
         self.assert_param = None
 
+    def __find_result(self, result: dict, path: str = None):
+        """
+        """
+        while isinstance(result, dict) and len(result.keys()) == 1:
+            result = result[list(result.keys())[0]]
+
+        if isinstance(result, dict) and isinstance(path, str):
+            for key in path.split('/'):
+                # TODO: this should throw an error if it's not there
+                if key in result:
+                    result = result[key]
+
+        return result
+
+
     def iterator(self, path: str = None, **kwargs):
         """
         Generator for ``action=query`` requests.
@@ -205,18 +220,8 @@ class Api:
         """
         kwargs['action'] = 'query'
         res = self.__call(**kwargs)
-        query = res['query']
 
-        while isinstance(query, dict) and len(query.keys()) == 1:
-            query = query[list(query.keys())[0]]
-
-            if not isinstance(query, dict):
-                break
-
-        if isinstance(query, dict) and isinstance(path, str):
-            for key in path.split('/'):
-                if key in query:
-                    query = query[key]
+        query = self.__find_result(res['query'], path)
 
         if isinstance(query, list):
             for item in query:
@@ -231,6 +236,13 @@ class Api:
 
             yield from self.iterator(**kwargs)
 
+        elif 'continue' in res:
+            from_param = res['continue']
+            kwargs.update(from_param)
+            kwargs['path'] = path
+
+            yield from self.iterator(**kwargs)
+
     def get_page_content(self, pagename: str) -> str:
         """
         """
@@ -240,14 +252,18 @@ class Api:
                           titles=pagename,
                           rvprop='content')
 
-        try:
-            pages = res['query']['pages']
-            content = pages[list(pages.keys())[0]]['revisions'][0]['*']
-        # TODO: make this better
-        except KeyError as exc:
-            raise MediaWikiError(res) from exc
-        else:
-            return content
+        res = self.__find_result(res, 'revisions')
+        return res['*']
+
+    def get_revision(self, revision_id: int) -> dict:
+        """
+        """
+        LOGGER.debug('Requesting revision: %s', revision_id)
+        res = self.__call(action='query',
+                          prop='revisions',
+                          rvprop='content',
+                          revids=revision_id)
+        return self.__find_result(res)
 
     def edit_page(self, pagename: str, text: str, summary: str = ''):
         """

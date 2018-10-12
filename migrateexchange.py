@@ -1,6 +1,14 @@
 #! /usr/bin/env python3
 
 """
+Revisions that could not be parsed are reported in failed.txt and to STDOUT.
+
+These failed revisions can be converted to another format using:
+
+    grep -o "oldid=[[:digit:]]*" failed.txt | cut -d'=' -f2 > revisions.txt
+
+This file can then be passed in as the --file argument to retry parsing after fixes have been
+completed.
 """
 
 import argparse
@@ -17,10 +25,11 @@ from lib.util import setup_logging
 
 
 LOG_FILE_FMT = 'migrateexchange-{}.log'
-FAILED_FILE = 'failed.txt'
 EXCLUDE_PAGES = ['Module:Exchange/test']
 
-total_revisions = 0
+NS_EXCHANGE = 112
+NS_MODULE = 828
+
 
 def main():
     """
@@ -34,7 +43,8 @@ def main():
     api = Api(config.username, config.password, config.api_path)
 
     cur_path = os.path.dirname(os.path.abspath(__file__))
-    failed_path = os.path.join(cur_path, FAILED_FILE)
+    failed_path = os.path.join(cur_path, args.failed)
+    total_revisions = 0
 
     if not args.start:
         try:
@@ -46,7 +56,7 @@ def main():
     with api:
         if args.modules:
             ap_params = {'list': 'allpages',
-                         'apnamespace': 828,
+                         'apnamespace': NS_MODULE,
                          'apprefix': 'Exchange/',
                          'aplimit': 'max'}
             rv_params = {'prop': 'revisions',
@@ -83,14 +93,14 @@ def main():
                             text = revision['*']
                             revision_id = revision['revid']
                         except KeyError:
-                            pprint(revision)
+                            logger.error(revision)
                             raise
 
                         check_content_module(title, text, failed_path, True, revision_id)
 
         if args.pages:
             ap_params = {'list': 'allpages',
-                         'apnamespace': 112,
+                         'apnamespace': NS_EXCHANGE,
                          'aplimit': 'max'}
             rv_params = {'prop': 'revisions',
                          'rvprop': 'ids|content|timestamp',
@@ -114,10 +124,26 @@ def main():
                         text = revision['*']
                         revision_id = revision['revid']
                     except KeyError:
-                        pprint(revision)
+                        logger.error(revision)
                         raise
 
                     check_content_page(title, text, failed_path, revision_id)
+
+        if args.file:
+            with open(args.file) as fh, api:
+                for line in fh.readlines():
+                    revision_id = int(line.strip())
+                    revision = api.get_revision(revision_id)
+
+                    namespace = revision['ns']
+                    title = revision['title']
+                    content = revision['revisions'][0]['*']
+
+                    if namespace == NS_MODULE:
+                        check_content_module(title, content, failed_path, True, revision_id)
+                    elif namespace == NS_EXCHANGE:
+                        check_content_page(title, content, failed_path, revision_id)
+
 
 
 def parse_args() -> argparse.Namespace:
@@ -128,8 +154,10 @@ def parse_args() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', required=True)
+    parser.add_argument('--failed', required=False, default='failed.txt')
     parser.add_argument('--start', required=False)
     parser.add_argument('--revisions', action='store_true', default=False)
+    parser.add_argument('--file', required=False)
 
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument('--modules', action='store_true')
@@ -156,7 +184,9 @@ def check_content_module(title: str, text: str, failed_path: str,
                          allow_category_nil: bool = False, revision_id: int = None):
     """
     """
-     # ignore redirects
+    logger = logging.getLogger(migrateexchange)
+
+    # ignore redirects
     if text.upper().startswith('#REDIRECT'):
         return
 
@@ -167,12 +197,14 @@ def check_content_module(title: str, text: str, failed_path: str,
 
     try:
         item = ExchangeItem.from_module(text, allow_category_nil=allow_category_nil)
-        print('Parsed {} successfully'.format(title))
     except Exception as exc:
-        print('Failed to parse {}: {!s}'.format(title, exc))
+        logger.exception(exc)
+        logger.error('Failed to parse %s: %s', title, str(exc))
+        return None
+    else:
+        logger.info('Parsed %s successfully', title)
+        return item
 
-        with open(failed_path, 'a') as fh:
-            fh.write('Title: {}, Error: {!s}\n'.format(title, exc))
 
 
 def check_content_page(title: str, text: str, failed_path: str,
@@ -192,16 +224,16 @@ def check_content_page(title: str, text: str, failed_path: str,
 
     try:
         item = ExchangeItem.from_page(text)
-        print('Parsed {} successfully'.format(title))
     except (ExchangeTemplateMissingError, ExchangeTemplateConvertedError):
-        pass
+        logger.info('No data to parse for %s', title)
+        return None
     except Exception as exc:
-        logger.error('Failed to parse %s', title)
         logger.exception(exc)
-
-        with open(failed_path, 'a') as fh:
-            fh.write('Title: {}, Error: {!s}\n'.format(title, exc))
-
+        logger.error('Failed to parse %s', title)
+        return None
+    else:
+        logger.info('Parsed %s successfully', title)
+        return item
 
 
 if __name__ == '__main__':

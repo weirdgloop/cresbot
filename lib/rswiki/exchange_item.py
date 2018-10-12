@@ -1,9 +1,29 @@
 # Copyright (C) 2018 Matthew Dowdell <mdowdell244@gmail.com>
 
 """
+Welcome to edge cases galore!
+
+This will parse pretty much every revision of RuneScape Wiki's Exchange namespace and the modules
+that replaced them. As much of the data stored in the original namespace was updated by hand,
+there are dozens of quirks to handle, such as:
+
+* More date formats that previously though possible
+* Signatures (with timestamps) being used in place of timestamps
+* Vandalism in all it's glorious variety
+* Template parameters that no longer exist
+* Template parameters that were renamed
+* Template parameters that never existed
+* Users that can't spell jewellery (myself included)
+
+And so on...
+
+The upside of these workarounds is that we can extract data from almost every revision that
+isn't vandalism.
+
+Yay!
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 import logging
 import re
@@ -20,21 +40,75 @@ _ALL_CAP_RE = re.compile('([a-z0-9])([A-Z])')
 # the various datetime formats used
 # most of these come from the exchange namespace back when people update things by hand
 # the first is the correct version
-# TODO: figure out how to handle timezones, e.g. EST, etc.
 _DATETIME_FMTS = ['%H:%M, %B %d, %Y (UTC)',
                   '%H:%M, %d %B %Y (UTC)',
                   '%H:%M, %d %B %Y',
                   '%H:%M:%S, %d %B %Y (UTC)',
+                  '%H:%M:%S, %B %d, %Y (UTC)',
                   '%H:%M %d %B %Y (UTC)',
                   '%H:%M, %B %d, %Y (GMT)',
+                  '%H:%M, %d %B %Y (GMT)',
+                  '%H:%M, %B %d %Y (GMT)',
                   '%H:%M, %B %d, %Y',
                   '%H:%M, %d %B %Y (UTC) (UTC)',
+                  '%H:%M, %d %B %Y (UTC)(UTC)',
+                  '%H:%M, %B %d, %Y (UTC)(UTC)',
+                  '%H:%M, %d %B %Y (UTC',
+                  '%H:%M, %d %B %Y (UTC))',
                   '%H:%M,%d %B %Y (UTC)',
                   '%H:%M,%B %d,%Y (UTC)',
-                  '%d %B %Y (UTC)']
+                  '%d %B %Y (UTC)',
+                  '%B %d %Y',
+                  '%d %B %Y',
+                  '%H:%M. %d %B %Y (UTC)',
+                  '%H:%M, %d %B, %Y',
+                  '%H:%M, %d %B %Y(UTC)',
+                  '%H:%M , %d %B %Y',
+                  '%H.%M, %d %B %Y (UTC)',
+                  '%H:%M,  %B %d %Y (UTC)',
+                  '%H:%M %d %B %Y(UTC)',
+                  '%H:%M,%d %B %Y (PST)',
+                  '%H:%M, %d %B %Y (PST)',
+                  '%H:%M, %B %d, %Y (PST)',
+                  '%H:%M, %B %d, %Y (EST)',
+                  '%H:%M, %d %B %Y (EST)',
+                  '%H:%M, %d %B %Y (EST',
+                  '%H:%M, %d %B %Y (AEST)'
+                  ]
 _SQL_FMT = '%Y-%m-%d %H:%M:%S'
-CATEGORY_ERRORS = ("Unexpected value for 'category': 'nil'",
+_CATEGORY_ERRORS = ("Unexpected value for 'category': 'nil'",
                    "Unexpected value for 'category': ''")
+_MAP_ATTRS = {'lw_alch': 'low_alch',
+              'lo_alch': 'low_alch',
+              'volume_data': 'volume_date',
+              'last__date': 'last_date',
+              'lastdate': 'last_date',
+              'last_price': 'last',
+              'current_price': 'price',
+              'current__price': 'price',
+              'current_price__price': 'price',
+              'price_current_price': 'price',
+              'exchange_price': 'price',
+              'pice': 'price',
+              'low__alcame': 'low_alch',
+              'last_dae': 'last_date',
+              'idem_id': 'item_id',
+              'l_ast': 'last',
+              'low': 'low_alch',
+              }
+_DATETIME_REPLACEMENTS = {'feb': 'February',
+                          'rd': '', # as in 3rd
+                          'th': '', # as in 4th
+                          'oct': 'October',
+                          'utc': 'UTC',
+                          'UCT': 'UTC',
+                          'GTM': 'GMT',
+                          'may': 'May',
+                         }
+_TIMEZONES = {'PST': 7,
+              'EST': 4,
+              'AEST': -10,
+             }
 
 LOGGER = logging.getLogger(__name__)
 
@@ -103,6 +177,8 @@ class ExchangeCategory(Enum):
             else:
                 p = p.lower()
 
+            # jagex seem to capitalise words based on the pahse of the moon when they wrote it
+            # this doesn't do all of those, but it's consistent enough for our purposes
             if p in ('drink', 'smithing', 'spells', 'teleports'):
                 p = p.capitalize()
 
@@ -116,13 +192,14 @@ class ExchangeItem:
     A representation of an item and it's data as stored in an exchange module or page.
     """
 
-    _ATTRS = ('item_id', 'price', 'last', 'date', 'last_date', 'volume', 'volume_date', 'item',
+    _ATTRS = ('item', 'item_id', 'price', 'last', 'date', 'last_date', 'volume', 'volume_date',
               'value', 'limit', 'members', 'category', 'alchable', 'examine', 'usage')
     # TODO: low_alch and high_alch seem to have been there before we had value
     #       so we should derive value from them
     # score looks to be incrrect spelling for store
     _IGNORED_ATTRS = ('icon', 'view', 'low_alch', 'high_alch', 'store', 'abs_min_price',
-                      'abs_max_price', 'direction', 'street', 'score', 'obj')
+                      'abs_max_price', 'direction', 'street', 'score', 'obj', 'store_sell', 'desc',
+                      'currency', 'exchange', 'abs_list_price', 'detail', 'destroy', 'lowalch', 'hialch',)
 
     def __init__(self, allow_category_nil: bool = False, **kwargs):
         """
@@ -160,27 +237,46 @@ class ExchangeItem:
             * street
             * score (mispelt version of store)
             * obj (duplication of item_id)
+            * store sell
+            * desc
+            * currency
+            * exchange
 
         :raises AttributeError: If an unrecognised attribute is found.
         :raises ValueError: If an invalid value for a valid attribute is found.
         """
+        # prime values to be None by default
+        for attr in self._ATTRS:
+            if attr == 'category':
+                self._category = ExchangeCategory.UNKNOWN
+            else:
+                setattr(self, '_' + attr, None)
+
         for k, v in kwargs.items():
+            if k in _MAP_ATTRS.keys():
+                k = _MAP_ATTRS[k]
+
             if k in self._ATTRS:
                 if k == 'category' and allow_category_nil:
                     try:
                         self.category = v
                     except ValueError as exc:
-                        if str(exc).endswith(CATEGORY_ERRORS):
+                        if str(exc).endswith(_CATEGORY_ERRORS):
                             self.category = ExchangeCategory.UNKNOWN
                 else:
-                    setattr(self, k, v)
+                    # ignore errors
+                    # TODO: make this configurable
+                    try:
+                        setattr(self, k, v)
+                    except ValueError as exc:
+                        LOGGER.warning(str(exc))
 
             elif k in self._IGNORED_ATTRS:
                 pass
 
             else:
                 msg = 'Unknown attribute found: name={!s}, value={!r}'.format(k, v)
-                raise AttributeError(msg)
+                LOGGER.warning(msg)
 
         if 'alchable' not in kwargs:
             self.alchable = False
@@ -352,7 +448,9 @@ class ExchangeItem:
                 continue
 
             name = camelcase_to_snakecase(str(param.name).strip())
-            attrs[name] = str(param.value).strip()
+            value = re.sub('<!--.*?-->', '', str(param.value), flags=re.MULTILINE)
+
+            attrs[name] = value.strip()
 
         return cls(allow_category_nil=True, **attrs)
 
@@ -635,14 +733,14 @@ class ExchangeItem:
                 if new_value.startswith('JEWEL'):
                     # handle quirky spellings of jewellery
                     self._category = ExchangeCategory.JEWELLERY
-                    LOGGER.warning('%s category was correct from %r to %r',
-                                   self.item, value, new_value)
+                    LOGGER.warning('%s category was corrected from %r to %r',
+                                   self.item, value, self._category)
 
                 elif new_value.startswith('HERBS'):
                     # a couple of odd instances of this
                     self._category = ExchangeCategory.HERBLORE_MATERIALS
-                    LOGGER.warning('%s category was correct from %r to %r',
-                                   self.item, value, new_value)
+                    LOGGER.warning('%s category was corrected from %r to %r',
+                                   self.item, value, self._category)
 
                 elif new_value == 'FLATPACKS':
                     # old name for construction products
@@ -672,6 +770,37 @@ class ExchangeItem:
         """
         self._alchable = convert_to_bool('alchable', value)
 
+    @property
+    def examine(self) -> str:
+        return self._examine
+
+    @examine.setter
+    def examine(self, value):
+        """
+        Setter for the ``examine`` attribute.
+
+        :param value: The value to set ``examine`` to.
+        """
+        self._examine = value
+
+    @property
+    def usage(self) -> list:
+        return self._usage
+
+    @usage.setter
+    def usage(self, value):
+        """
+        Setter for the ``usage`` attribute.
+
+        :param value: The value to set ``usage`` to.
+        """
+        if isinstance(value, str):
+            value = [value]
+        elif value is None:
+            value = []
+
+        self._usage = value
+
 
 def camelcase_to_snakecase(value: str) -> str:
     """
@@ -682,6 +811,7 @@ def camelcase_to_snakecase(value: str) -> str:
     :return str: The converted string
     """
     # based on <https://stackoverflow.com/a/1176023>
+    value = value.replace(' ', '_')
     s1 = _FIRST_CAP_RE.sub(r'\1_\2', value)
     return _ALL_CAP_RE.sub(r'\1_\2', s1).lower()
 
@@ -728,6 +858,9 @@ def convert_to_bool(name: str, value) -> bool:
 
     value = value.strip().lower()
 
+    if value == '' or value is None or value == 'nil':
+        return None
+
     if value in ('true', 'yes'):
         return True
 
@@ -755,15 +888,74 @@ def convert_to_int(name: str, value, min_value: int = None) -> int:
 
         # strip commas
         value = value.replace(',', '')
-        # rm trailing gp
-        value = value.lower().replace('gp', '')
+        # rm trailing gp/coins
+        value = value.lower() \
+            .replace('gp', '') \
+            .replace('coins', '') \
+            .replace('gold', '')
         # rm any leftover whitespace
         value = value.strip()
 
-        # TODO: handle modifiers, e.g. 100k, 1.1m(il)?, etc.
+        # if it's just text, it's almost always vandalism, so just ignore it
+        if re.match(r'\A\D+\Z', value, flags=re.ASCII):
+            return None
+
+        # handle "1 000 000"
+        if re.match(r'\A[\d ]+\Z', value):
+            value = value.replace(' ', '')
+
+        # handle "1.000.000"
+        if re.match(r'\A[\d\.]+\Z', value):
+            value = value.replace('.', '')
+
+        # handle ranges
+        if re.match(r'\A\d+\s*-\s*\d+\Z', value):
+            parts = value.split('-')
+            value = int((convert_to_int(name, parts[0].strip(), min_value) +
+                         convert_to_int(name, parts[1].strip(), min_value)) / 2)
+
+            return value
+
+        # handle ranges with "to" as the separator
+        if re.match(r'\A\d+\s+to\s+\d+\Z', value):
+            parts = value.split('to')
+            value = int((convert_to_int(name, parts[0].strip(), min_value) +
+                         convert_to_int(name, parts[1].strip(), min_value)) / 2)
+
+            return value
 
         try:
-            value = int(value)
+            # handle modifiers: k, m, etc.
+            if value.endswith('k'):
+                if '.' in value:
+                    value = int(convert_to_float(name, value[:-1]) * 1000)
+                else:
+                    value = int(value[:-1])
+                    value *= 1000
+
+            elif value.endswith('m'):
+                if '.' in value:
+                    value = int(convert_to_float(name, value[:-1]) * 1000000)
+                else:
+                    value = int(value[:-1])
+                    value *= 1000000
+
+            elif value.endswith('mil'):
+                if '.' in value:
+                    value = int(convert_to_float(name, value[:-3]) * 1000000)
+                else:
+                    value = int(value[:-3])
+                    value *= 1000000
+
+            elif value.endswith('mill'):
+                if '.' in value:
+                    value = int(convert_to_float(name, value[:-4]) * 1000000)
+                else:
+                    value = int(value[:-4])
+                    value *= 1000000
+
+            else:
+                value = int(value)
         except ValueError as exc:
             msg = '{!r} could not be converted to an integer: {!r}.'.format(name, value)
             raise ValueError(msg) from exc
@@ -816,7 +1008,9 @@ def convert_to_datetime(name: str, value) -> datetime:
     if isinstance(value, datetime):
         return value
 
-    if value == '' or value is None:
+    # nil is if it was set to that in lua
+    # undefined probably came from JS
+    if value is None or value == 'nil' or value =='undefined':
         return None
 
     # handle cases where someone used ~~~~ instead of ~~~~~
@@ -824,12 +1018,29 @@ def convert_to_datetime(name: str, value) -> datetime:
     value = re.sub(r'\[\[.*?\]\]', '', value)
     value = re.sub(r'\{\{.*?\}\}', '', value)
 
+    # and cases where the tilde didn't expand for some reason
+    value = value.replace('~', '')
+
+    if value.startswith('='):
+        value = value[1:]
+
     # strip any leftover whitespace that creeps in
     value = value.strip()
 
+    if value == '':
+        return None
+
+    # correct cases where we have something like "1:15" as the time
+    # arguably this could be 1am or 1pm, but such things are pretty old and better than nothing
+    if value[1] == ':':
+        value = '0' + value
+
+    for k, v in _DATETIME_REPLACEMENTS.items():
+        value = value.replace(k, v)
+
     for fmt in _DATETIME_FMTS:
         try:
-            value = datetime.strptime(value, fmt)
+            ret = datetime.strptime(value, fmt)
             break
         except ValueError:
             pass
@@ -837,4 +1048,9 @@ def convert_to_datetime(name: str, value) -> datetime:
         msg = '{!r} could not be converted to a datetime: {!r}.'.format(name, value)
         raise ValueError(msg)
 
-    return value
+    for k, v in _TIMEZONES.items():
+        if '({})'.format(k) in value:
+            ret += timedelta(hours=v)
+            break
+
+    return ret

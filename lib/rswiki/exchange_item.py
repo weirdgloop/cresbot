@@ -343,6 +343,8 @@ class ExchangeItem:
 
         :return ExchangeItem: An instance of ExchangeItem containing the data found in ``text``.
         """
+        # TODO: this doesn't hold up for a handful of revisions on osrs
+        #       needs a better parser that doesn't assume a line by line format
         # strip_any_whitespace
         text = text.strip()
         # remove_initial_return

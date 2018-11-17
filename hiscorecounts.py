@@ -92,7 +92,7 @@ def setup_logging(args: argparse.Namespace, config: Config):
 
     cur_date = datetime.utcnow()
     log_path = os.path.join(config.log_dir,
-                            LOG_FILE_FMT.format(cur_date.strftime('%Y-%m-%d_%H-%M-%S')))
+                            LOG_FILE_FMT.format(cur_date.strftime('%Y%m%dT%H%M%S')))
 
     fh = logging.FileHandler(filename=log_path)
 

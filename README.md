@@ -5,7 +5,7 @@ This is a MediaWiki bot written in Python, designed for use on the [RuneScape Wi
 ## Installing
 To install, simply clone this repository via git:
 ```
-git clone git://github.com/onei/cresbot.git
+git clone git@gitlab.com/weirdgloop/cresbot.git
 ```
 
 Set the following environment variables:
@@ -32,7 +32,7 @@ Note that this is only tested with the latest version of each dependency. Older 
 Cresbot provides a set of scripts to be used for regular tasks on the wiki.
 
 ### Hiscorecounts
-Hiscorecounts updates [Module:Hiscore counts](https://rs.weirdgloop.org/w/Module:Hiscore_counts) on the wiki.
+Hiscorecounts updates [Module:Hiscore counts](https://runescape.wiki/w/Module:Hiscore_counts) on the wiki.
 
 ```
 usage: hiscorecounts.py [-h] -c CONFIG [-v | -q]

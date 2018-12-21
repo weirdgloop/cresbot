@@ -46,6 +46,10 @@ def main():
     failed_path = os.path.join(cur_path, args.failed)
     total_revisions = 0
 
+    if args.csv:
+        dirname = os.path.join(cur_path, args.csv)
+        os.makedirs(dirname, exist_ok=True)
+
     if not args.start:
         try:
             # empty file at the start of the run
@@ -60,7 +64,7 @@ def main():
                          'apprefix': 'Exchange/',
                          'aplimit': 'max'}
             rv_params = {'prop': 'revisions',
-                         'rvprop': 'ids|content|timestamp',
+                         'rvprop': 'ids|content|timestamp|user|userid|comment',
                          'rvlimit': 'max',
                          'path': 'revisions'}
 
@@ -83,9 +87,23 @@ def main():
                 if not args.revisions:
                     text = api.get_page_content(title)
                     total_revisions += 1
+                    logger.debug(text)
                     check_content_module(title, text, failed_path)
+                    return
                 else:
                     rv_params['titles'] = title
+                    prev = None
+
+                    if args.csv:
+                        filename = title.replace('Module:Exchange/', '') \
+                                        .replace(' ', '_')
+                        csv_filename = os.path.join(cur_path, args.csv, filename + '.csv')
+
+                        with open(csv_filename, 'w') as fh:
+                            fh.write(','.join(ExchangeItem._ATTRS +
+                                              ('user', 'userid', 'summary', 'timestamp', 'revid')) + '\n')
+                    else:
+                        csv_filename = None
 
                     for revision in api.iterator(**rv_params):
                         total_revisions += 1
@@ -96,7 +114,22 @@ def main():
                             logger.error(revision)
                             raise
 
-                        check_content_module(title, text, failed_path, True, revision_id)
+                        item = check_content_module(title, text, failed_path, True, revision_id)
+                        extras = [revision[k] for k in ('user', 'userid', 'comment', 'timestamp', 'revid')]
+                        # convert API timestamps to SQL format
+                        extras[3] = extras[3].replace('Z', '').replace('T', ' ')
+
+                        for i, e in enumerate(extras):
+                            if isinstance(e, str):
+                                extras[i] = repr(e)
+                            else:
+                                extras[i] = str(e)
+
+                        extras = ',' + ','.join(extras)
+
+                        if csv_filename is not None:
+                            with open(csv_filename, 'a') as fh:
+                                fh.write(item.to_csv() + extras + '\n')
 
         if args.pages:
             ap_params = {'list': 'allpages',
@@ -158,6 +191,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--start', required=False)
     parser.add_argument('--revisions', action='store_true', default=False)
     parser.add_argument('--file', required=False)
+    parser.add_argument('--csv', required=False)
 
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument('--modules', action='store_true')
@@ -184,7 +218,7 @@ def check_content_module(title: str, text: str, failed_path: str,
                          allow_category_nil: bool = False, revision_id: int = None):
     """
     """
-    logger = logging.getLogger(migrateexchange)
+    logger = logging.getLogger('migrateexchange')
 
     # ignore redirects
     if text.upper().startswith('#REDIRECT'):
@@ -196,13 +230,13 @@ def check_content_module(title: str, text: str, failed_path: str,
         title += '?oldid={}'.format(revision_id)
 
     try:
-        item = ExchangeItem.from_module(text, allow_category_nil=allow_category_nil)
+        item = ExchangeItem.from_module(text, allow_category_nil=True)
     except Exception as exc:
         logger.exception(exc)
         logger.error('Failed to parse %s: %s', title, str(exc))
         return None
     else:
-        logger.info('Parsed %s successfully', title)
+        logger.debug('Parsed %s successfully', title)
         return item
 
 

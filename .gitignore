@@ -10,3 +10,4 @@ logs
 
 # output of migrateexchange.py
 failed.txt
+csv/

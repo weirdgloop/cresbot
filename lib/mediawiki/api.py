@@ -9,7 +9,7 @@ from pprint import pprint
 
 import requests
 
-from ..exception import MediaWikiError, LoginError, EditError
+from ..exception import MediaWikiError, LoginError, EditError, ApiError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -84,7 +84,9 @@ class Api:
             LOGGER.exception(exc)
             raise MediaWikiError('Unable to decode response: {!r}'.format(res.text)) from exc
 
-        # TODO: check for errors here
+        # check for errors
+        if 'error' in ret:
+            raise APIError(**ret['error'])
 
         return ret
 
@@ -192,7 +194,6 @@ class Api:
 
         return result
 
-
     def iterator(self, path: str = None, **kwargs):
         """
         Generator for ``action=query`` requests.
@@ -221,7 +222,11 @@ class Api:
         kwargs['action'] = 'query'
         res = self.__call(**kwargs)
 
-        query = self.__find_result(res['query'], path)
+        try:
+            query = self.__find_result(res['query'], path)
+        except KeyError:
+            LOGGER.error(res)
+            raise
 
         if isinstance(query, list):
             for item in query:
@@ -252,7 +257,13 @@ class Api:
                           titles=pagename,
                           rvprop='content')
 
+        # get rid of the keys we don't care about
+        res.pop('batchcomplete', None)
         res = self.__find_result(res, 'revisions')
+
+        if isinstance(res, list):
+            res = res[0]
+
         return res['*']
 
     def get_revision(self, revision_id: int) -> dict:

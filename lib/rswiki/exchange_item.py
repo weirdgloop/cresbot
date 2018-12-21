@@ -31,6 +31,7 @@ import re
 import mwparserfromhell
 
 from ..exception import ExchangeTemplateMissingError, ExchangeTemplateConvertedError
+from .exchange_module_parser import ExchangeModuleParser
 
 
 __all__ = ['ExchangeCategory', 'ExchangeItem']
@@ -49,6 +50,7 @@ _DATETIME_FMTS = ['%H:%M, %B %d, %Y (UTC)',
                   '%H:%M, %B %d, %Y (GMT)',
                   '%H:%M, %d %B %Y (GMT)',
                   '%H:%M, %B %d %Y (GMT)',
+                  '%a, %d %b %Y %H:%M:%S GMT',
                   '%H:%M, %B %d, %Y',
                   '%H:%M, %d %B %Y (UTC) (UTC)',
                   '%H:%M, %d %B %Y (UTC)(UTC)',
@@ -177,7 +179,7 @@ class ExchangeCategory(Enum):
             else:
                 p = p.lower()
 
-            # jagex seem to capitalise words based on the pahse of the moon when they wrote it
+            # jagex seem to capitalise words based on the phase of the moon when they wrote it
             # this doesn't do all of those, but it's consistent enough for our purposes
             if p in ('drink', 'smithing', 'spells', 'teleports'):
                 p = p.capitalize()
@@ -300,7 +302,20 @@ class ExchangeItem:
 
         return '{}({})'.format(name, ', '.join(values))
 
-    def to_module() -> str:
+    def __eq__(self, other) -> bool:
+        """
+        """
+        ret = True
+
+        for attr in self._ATTRS:
+            if attr in ['price', 'last', 'date', 'last_date', 'volume', 'volume_date']:
+                continue
+
+            ret &= (getattr(self, attr) == getattr(other, attr))
+
+        return ret
+
+    def to_module(self) -> str:
         """
         Convert the instance to a Lua table to be used for an exchange module.
 
@@ -333,6 +348,38 @@ class ExchangeItem:
 
         return 'return {\n' + ',\n'.join(values) + '\n}\n'
 
+    def to_csv(self) -> str:
+        """
+        """
+        ret = []
+
+        for attr in self._ATTRS:
+            if attr in ['date', 'last_date', 'volume_date']:
+                attr += '_sql'
+
+            value = getattr(self, attr)
+
+            if value is None:
+                value = ''
+            elif value is True or value is False:
+                value = str(value).lower()
+            elif isinstance(value, ExchangeCategory):
+                value = value.value
+
+                if value == -1:
+                    value = ''
+                else:
+                    value = str(value)
+            else:
+                if isinstance(value, str):
+                    value = repr(value)
+                else:
+                    value = str(value)
+
+            ret.append(value)
+
+        return ','.join(ret)
+
     @classmethod
     def from_module(cls, text: str, allow_category_nil: bool = False):
         """
@@ -343,66 +390,9 @@ class ExchangeItem:
 
         :return ExchangeItem: An instance of ExchangeItem containing the data found in ``text``.
         """
-        # TODO: this doesn't hold up for a handful of revisions on osrs
-        #       needs a better parser that doesn't assume a line by line format
-        # strip_any_whitespace
-        text = text.strip()
-        # remove_initial_return
-        text = re.sub(r'\Areturn {', '', text)
-        # remove_closing_brace
-        text = re.sub(r'}\Z', '', text)
-        # strip_any_whitespace_again
-        text = text.strip()
-
-        attrs = {}
-        lines = text.split('\n')
-        in_usage = False
-
-        for line in lines:
-            line = line.strip()
-
-            if not line:
-                # skip blank lines
-                continue
-
-            if line.startswith('--'):
-                # ignore comments
-                continue
-
-            if line.startswith('usage'):
-                key = 'usage'
-                value = []
-                in_usage = True
-                continue
-
-            if in_usage:
-                if line.strip() == '}':
-                    in_usage = False
-                else:
-                    line = line.strip().replace(',', '')[1:-1]
-                    value.append(line)
-                    continue
-
-            else:
-                parts = line.split('=', maxsplit=2)
-                key = parts[0].strip()
-                value = parts[1].strip()
-
-                # convert to snake case
-                key = camelcase_to_snakecase(key)
-
-                # trim_trailing_comma
-                if value.endswith(','):
-                    value = value[:-1]
-
-                # trim_quotes_on_string_values
-                if (
-                    (value.startswith('\'') and value.endswith('\'')) or
-                    (value.startswith('"') and value.endswith('"'))
-                ):
-                    value = value[1:-1]
-
-            attrs[key] = value
+        parser = ExchangeModuleParser(text)
+        data = parser.parse()
+        attrs = {camelcase_to_snakecase(k): v for k, v in data.items()}
 
         return cls(allow_category_nil=allow_category_nil, **attrs)
 
@@ -532,6 +522,9 @@ class ExchangeItem:
 
         :rtype: str
         """
+        if self._date is None:
+            return None
+
         return self._date.strftime(_SQL_FMT)
 
     @date.setter
@@ -561,7 +554,10 @@ class ExchangeItem:
 
         :rtype: str
         """
-        return self._date.strftime(_SQL_FMT)
+        if self._last_date is None:
+            return None
+
+        return self._last_date.strftime(_SQL_FMT)
 
     @last_date.setter
     def last_date(self, value):
@@ -610,6 +606,9 @@ class ExchangeItem:
 
         :rtype: str
         """
+        if self._volume_date is None:
+            return None
+
         return self._volume_date.strftime(_SQL_FMT)
 
     @volume_date.setter
@@ -783,7 +782,10 @@ class ExchangeItem:
 
         :param value: The value to set ``examine`` to.
         """
-        self._examine = value
+        if value == 'nil':
+            self.examine = None
+        else:
+            self._examine = value
 
     @property
     def usage(self) -> list:
@@ -834,7 +836,7 @@ def snakecase_to_camelcase(value: str) -> str:
 
 def convert_to_bool(name: str, value) -> bool:
     """
-    Convert a vaue to it's ``bool`` equivalent.
+    Convert a value to it's ``bool`` equivalent.
 
     Converts the following strings to ``True``:
 

@@ -29,9 +29,9 @@ import logging
 import re
 
 import mwparserfromhell
+from luaparser import ast, astnodes
 
 from ..exception import ExchangeTemplateMissingError, ExchangeTemplateConvertedError
-from .exchange_module_parser import ExchangeModuleParser
 
 
 __all__ = ['ExchangeCategory', 'ExchangeItem']
@@ -390,11 +390,33 @@ class ExchangeItem:
 
         :return ExchangeItem: An instance of ExchangeItem containing the data found in ``text``.
         """
-        parser = ExchangeModuleParser(text)
-        data = parser.parse()
-        attrs = {camelcase_to_snakecase(k): v for k, v in data.items()}
+        def table_to_dict(table):
+            ret = {}
 
-        return cls(allow_category_nil=allow_category_nil, **attrs)
+            for field in table.fields:
+                key = field.key.id
+                value = field.value
+
+                if isinstance(value, astnodes.Number):
+                    value = value.n
+                elif isinstance(value, astnodes.String):
+                    value = value.s
+                elif isinstance(value, astnodes.FalseExpr):
+                    value = False
+                elif isinstance(value, astnodes.Table):
+                    value = table_to_dict(value)
+                else:
+                    raise ValueError('Unknown node: {}'.format(value))
+
+                ret[key] = value
+
+            return ret
+
+        tree = ast.parse(text)
+        table = tree.body.body[0].values[0]
+        attrs = table_to_dict(table)
+
+        return cls(allow_category_nil=True, **attrs)
 
     @classmethod
     def from_page(cls, text: str):

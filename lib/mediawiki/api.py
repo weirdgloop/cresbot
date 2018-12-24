@@ -6,6 +6,7 @@
 from json.decoder import JSONDecodeError
 import logging
 from pprint import pprint
+from typing import Union, Iterable
 
 import requests
 
@@ -38,7 +39,6 @@ class Api:
 
         self.session = requests.Session()
         self.assert_param = None
-        self.is_wikia = 'wikia.com' in api_path or 'fandom.com' in api_path
 
         self.session.headers.update({'User-Agent': 'Cresbot v1.0.0'})
 
@@ -62,13 +62,29 @@ class Api:
         """
         self.logout()
 
+    def __merge_iterable(self, values: Union[str, Iterable]) -> str:
+        """
+        """
+        # already merged, nothing to do
+        if isinstance(values, str):
+            return values
+
+        for val in values:
+            if not isinstance(val, str):
+                msg = 'Unexpected type: expected str, found: {} ({})'
+                msg = msg.format(type(val), val)
+
+                raise ValueError(msg)
+
+        return '|'.join(values)
+
     def __call(self, **kwargs) -> dict:
         """
         """
         is_get = kwargs['action'] in ('query',)
         kwargs['format'] = 'json'
 
-        if self.assert_param is not None and not self.is_wikia:
+        if self.assert_param is not None:
             kwargs['assert'] = self.assert_param
 
         req = getattr(self.session, 'get' if is_get else 'post')
@@ -90,18 +106,24 @@ class Api:
 
         return ret
 
-    def get_token(self, token = 'csrf', is_wikia: bool = False):
+    def call(self, **kwargs):
+        """
+        """
+        return self.__call(**kwargs)
+
+    def get_token(self, token: Union[str, Iterable]='csrf'):
         """
         Get a token from the API.
 
-        If the API endpoint is for wikia, i.e. it comtains ``wikia.com`` or ``fandom.com`` the
-        option for reqesting multiple tokens is disabled.
+        If the API endpoint is for FANDOM, i.e. it contains ``wikia.com`` or ``fandom.com`` the
+        option for requesting multiple tokens is disabled.
 
-        :param token_type: A string or list, tuple or set of strings containing the tokens
+        :param token: A string or iterable of strings (e.g. set, list, tuple) containing the tokens
             required. Valid token types are: 'createaccount', 'csrf', 'login', 'patrol',
             'rollback', 'userrights' and 'watch'. The default is 'csrf'. If multiple tokens are
             wanted, either provide a string with a '|' character separating the different types or
-            provide a list of the different token types.
+            provide an iterable of the different token types. Multiple tokens are not supported
+            for FANDOM wikis.
 
         :return: If a single token was requested, the token value will be returned. If multiple
             tokens were requested a dictionary containing them will be returned, e.g.::
@@ -110,29 +132,20 @@ class Api:
                     "watchtoken": "<token value>",
                     "patroltoken": "<token value>",
                 }
+
+        :raises ValueError:
         """
-        if self.is_wikia:
-            if not isinstance(token, str):
-                raise ValueError('Cannot use mutliple token types when getting tokens from Wikia.')
+        token = self.__merge_iterable(token)
 
-            if token == 'csrf':
-                token = 'edit'
+        res = self.__call(action='query', meta='tokens', type=token)
+        tokens = res['query']['tokens']
 
-            raise NotImplementedError()
+        if len(tokens.keys()) == 1:
+            return list(tokens.values())[0]
 
-        else:
-            if isinstance(token, (list, tuple, set)):
-                token = '|'.join(token)
+        return tokens
 
-            res = self.__call(action='query', meta='tokens', type=token)
-            tokens = res['query']['tokens']
-
-            if len(tokens.keys()) == 1:
-                return list(tokens.values())[0]
-
-            return tokens
-
-    def login(self, is_bot: bool = False):
+    def login(self, is_bot: bool=False):
         """
         Logs into the API using the credentials supplied in the class constructor. This uses the
         old action=login endpoint which requires a password to be set up using Special:BotPasswords
@@ -142,26 +155,15 @@ class Api:
             subsequent requests will pass ``assert='bot'`` with all API requests. If ``False``,
             subsequent requests will pass ``assert='user'`` with all API requests. This will be
             continued until ``logout`` is called. Assertions are not available when interacting
-            with a Wikia wiki.
+            with a FANDOM wiki.
         """
         LOGGER.debug('Logging into %r as %r', self.api_path, self.username)
-        params = {'action': 'login',
-                  'lgname': self.username,
-                  'lgpassword': self.password}
-
-        if self.is_wikia:
-            res = self.__call(**params)
-
-            if res['login']['result'] == 'NeedToken':
-                params['lgtoken'] = res['login']['token']
-            else:
-                msg = ('Attempted login failed with: {result}: {reason}'
-                       .format(**res['login']))
-                raise LoginError(msg)
-
-        else:
-            token = self.get_token('login')
-            params['lgtoken'] = token
+        params = {
+            'action': 'login',
+            'lgname': self.username,
+            'lgpassword': self.password,
+            'lgtoken': self.get_token('login')
+        }
 
         res = self.__call(**params)
 
@@ -170,7 +172,9 @@ class Api:
                    .format(**res['login']))
             raise LoginError(msg)
 
-        self.assert_param = 'bot' if is_bot else 'user'
+        # check what to use for the assert param
+        user_groups = self.get_userinfo('groups')['groups']
+        self.assert_param = 'bot' if 'bot' in user_groups else 'user'
 
     def logout(self):
         """
@@ -179,6 +183,14 @@ class Api:
         LOGGER.debug('Logging out of %r as %r', self.api_path, self.username)
         self.__call(action='logout')
         self.assert_param = None
+
+    def get_userinfo(self, uiprop: Union[str, Iterable]=None):
+        """
+        """
+        uiprop = self.__merge_iterable(uiprop)
+        res = self.__call(action='query', meta='userinfo', uiprop=uiprop)
+
+        return self.__find_result(res['query'])
 
     def __find_result(self, result: dict, path: str = None):
         """

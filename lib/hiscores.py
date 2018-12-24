@@ -29,6 +29,7 @@ class Count(enum.Enum):
 
 
 class Exp(enum.Enum):
+    """Common experience values for certain skill level thresholds."""
     XP_99 = 13034431
     XP_120 = 104273167
     XP_99_ELITE = 36073511
@@ -37,6 +38,7 @@ class Exp(enum.Enum):
 
 
 class Skill(enum.Enum):
+    """The available skills."""
     OVERALL = 0
     ATTACK = 1
     DEFENCE = 2
@@ -67,28 +69,24 @@ class Skill(enum.Enum):
     INVENTION = 27
 
     def is_elite(self) -> bool:
-        """
-        """
+        """Test if the skills is an an elite skills."""
         return self in [Skill.INVENTION]
 
     @property
     def xp_99(self) -> int:
-        """
-        """
+        """Get the experience required for level 99 in the skill."""
         ret = Exp.XP_99_ELITE if self.is_elite() else Exp.XP_99
         return ret.value
 
     @property
     def xp_120(self) -> int:
-        """
-        """
+        """Get the experience required for level 120 in the skill."""
         ret = Exp.XP_120_ELITE if self.is_elite() else Exp.XP_120
         return ret.value
 
     @property
     def xp_max(self) -> int:
-        """
-        """
+        """Get the maximum possible experience for the skill."""
         return Exp.XP_MAX.value
 
 

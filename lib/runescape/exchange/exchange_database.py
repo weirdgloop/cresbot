@@ -22,6 +22,9 @@ from .exchange_models import (
 )
 
 
+_FIRE_RUNE_ID = 554
+
+
 class ExchangeDatabase:
     """
     """
@@ -47,14 +50,22 @@ class ExchangeDatabase:
         # TODO: handle being ratelimited, should return a 404
         return res.json()
 
-    def get_last_config_update(self) -> Runedate:
+    def get_last_config_update(self) -> datetime:
         """
         """
         path = '/m=itemdb_rs/api/info.json'
         res = self.__get(path)
         last_update = res['lastConfigUpdateRuneday']
 
-        return Runedate(res['lastConfigUpdateRuneday'])
+        return Runedate(res['lastConfigUpdateRuneday']).to_datetime()
+
+    def get_last_update(self) -> datetime:
+        """
+        """
+        # use the id of a fire rune as it's unlikely to go missing
+        # and the way to check for an update is to inspect the last time in the graph
+        graph = self.graph(554)
+        return graph.daily[-1].time
 
     def catalogue_category(self, category: ExchangeCategory) -> dict:
         """

@@ -7,7 +7,7 @@ This will parse pretty much every revision of RuneScape Wiki's Exchange namespac
 that replaced them. As much of the data stored in the original namespace was updated by hand,
 there are dozens of quirks to handle, such as:
 
-* More date formats that previously though possible
+* More date formats that previously thought possible
 * Signatures (with timestamps) being used in place of timestamps
 * Vandalism in all it's glorious variety
 * Template parameters that no longer exist
@@ -19,8 +19,6 @@ And so on...
 
 The upside of these workarounds is that we can extract data from almost every revision that
 isn't vandalism.
-
-Yay!
 """
 
 from datetime import datetime, timedelta

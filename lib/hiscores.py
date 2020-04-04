@@ -65,6 +65,7 @@ class Skill(enum.Enum):
     DUNGEONEERING = 25
     DIVINATION = 26
     INVENTION = 27
+    ARCHAEOLOGY = 28
 
     def is_elite(self) -> bool:
         """

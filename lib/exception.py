@@ -1,27 +1,42 @@
-# Copyright (C) 2018 Matthew Dowdell <mdowdell244@gmail.com>
+# Copyright (C) 2018-2020 Matthew Dowdell <mdowdell244@gmail.com>
 
-"""
-"""
+"""Exceptions for Cresbot."""
+
+
+__all__ = [
+    "CresbotError",
+    "MediaWikiError",
+    "AuthError",
+    "LoginError",
+    "LogoutError",
+    "EditError",
+    "HiscoresError",
+]
 
 
 class CresbotError(Exception):
-	pass
+    """Base exception for Cresbot."""
 
 
-if True:
-	class MediaWikiError(CresbotError):
-		pass
+class MediaWikiError(CresbotError):
+    """Base exception for MediaWiki errors."""
 
-	if True:
-		class AuthError(MediaWikiError):
-			pass
 
-		if True:
-			class LoginError(AuthError):
-				pass
+class AuthError(MediaWikiError):
+    """Authorisation errors in MediaWiki."""
 
-			class LogoutError(AuthError):
-				pass
 
-	class HiscoresError(CresbotError):
-		pass
+class LoginError(AuthError):
+    """Login authorisation errors in MediaWiki."""
+
+
+class LogoutError(AuthError):
+    """Logout authorisation errors in MediaWiki."""
+
+
+class EditError(MediaWikiError):
+    """Edit errors in MediaWiki."""
+
+
+class HiscoresError(CresbotError):
+    """Hiscores errors in RuneScape."""

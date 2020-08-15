@@ -35,13 +35,12 @@ Cresbot provides a set of scripts to be used for regular tasks on the wiki.
 Hiscorecounts updates [Module:Hiscore counts](https://rs.weirdgloop.org/w/Module:Hiscore_counts) on the wiki.
 
 ```
-usage: hiscorecounts.py [-h] -c CONFIG [-v | -q]
+usage: hiscorecounts.py [-h] -c CONFIG [-v]
 
 optional arguments:
   -h, --help            show this help message and exit
   -c CONFIG, --config CONFIG
   -v, --verbose
-  -q, --quiet
 ```
 
 ## Config
@@ -63,8 +62,8 @@ Crontab setup should be along the following lines (use `crontab -e` to edit):
 # need to use bash as the shell so source works
 SHELL=/bin/bash
 
-# run hiscore counts updater ever day at midnight
-0 0 * * * cd /path/to/cresbot && source ./venv/bin/activate && ./hiscorecounts.py -c ./config.toml -v
+# run hiscore counts updater every day at midnight
+0 0 * * * cd /path/to/cresbot && ./venv/bin/python hiscorecounts.py config.toml -vv
 
 # manage logs
 0 12 * * * cd /path/to/cresbot && ./manage-logs.sh

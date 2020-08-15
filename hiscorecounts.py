@@ -9,18 +9,27 @@ import argparse
 from collections import defaultdict
 from datetime import datetime
 import logging
-import os
 import re
-import sys
 
-from lib.mediawiki import Api
 from lib.config import Config
-from lib.hiscores import Hiscores, Skill
 from lib.exception import MediaWikiError, HiscoresError
+from lib.hiscores import Hiscores, Skill
+from lib.mediawiki import Api
+from lib.util import setup_logging
 
 
-LOG_FILE_FMT = 'hiscorecounts-{}.log'
-PAGE_NAME = 'Module:Hiscore counts'
+LOGGER = logging.getLogger(__name__)
+
+LOG_FILE_FMT = "hiscorecounts-{}.log"
+PAGE_NAME = "Module:Hiscore counts"
+
+EN_DATE_FMT = "%d %B %Y"
+
+SKILL_PATTERN = r'{table}\[[\'"]{name}[\'"]\]\s*=\s*[\'"]([\d,]+?)[\'"]'
+SKILL_REPLACE = '{table}["{name}"] = "{value:,}"'
+
+UPDATED_PATTERN = r'{table}\[[\'"]{name}[\'"]\]\s*=\s*[\'"]([\w ]+?)[\'"]'
+UPDATED_REPLACE = '{table}["{name}"] = "{value}"'
 
 
 def main():
@@ -29,10 +38,9 @@ def main():
     """
     args = parse_args()
     config = Config.from_toml(args.config)
-    setup_logging(args, config)
+    setup_logging(args.verbose, config, LOG_FILE_FMT)
 
     hiscores = Hiscores()
-    logger = logging.getLogger(__name__)
     start = datetime.utcnow()
 
     try:
@@ -41,19 +49,21 @@ def main():
 
         save_counts(config, new_counts)
     except Exception as exc:
-        logger.exception(exc)
+        LOGGER.exception(exc)
     else:
-        logger.info('Hiscore counts completed successfully')
+        LOGGER.info("Hiscore counts completed successfully")
     finally:
         end = datetime.utcnow()
-        # TODO: write this to file
-        logger.info('STATS: hiscores requests: %s, hiscore errors: %s, end_delay: %s, total_time: %s',
-                    hiscores.total_requests, hiscores.error_requests, hiscores.delay,
-                    str(end - start))
+        # TODO: write this to separate file
+        LOGGER.info(
+            "STATS: hiscores requests: %s, hiscore errors: %s, end_delay: %s, total_time: %s",
+            hiscores.total_requests,
+            hiscores.error_requests,
+            hiscores.delay,
+            str(end - start),
+        )
         # TODO: update stats
         # TODO: keep track of errors found while getting new counts
-        pass
-
 
 
 def parse_args() -> argparse.Namespace:
@@ -63,86 +73,68 @@ def parse_args() -> argparse.Namespace:
     :return: The found arguments.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', required=True)
 
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument('-v', '--verbose', action='store_true')
-    group.add_argument('-q', '--quiet', action='store_true')
+    parser.add_argument("config", help="the configuration file for the task")
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="increase log verbosity")
 
     return parser.parse_args()
 
 
-def setup_logging(args: argparse.Namespace, config: Config):
-    """
-    """
-    if args.quiet:
-        log_level = logging.WARNING
-    elif args.verbose:
-        log_level = logging.DEBUG
-    else:
-        log_level = logging.INFO
+def get_current_counts(config: Config) -> str:
+    """Get the current counts.
 
-    log_format = '[%(asctime)s][%(levelname)s][%(name)s] %(message)s'
-    date_format = '%H:%M:%S'
-
-    base_logger = logging.getLogger()
-    base_logger.setLevel(log_level)
-
-    formatter = logging.Formatter(log_format, datefmt=date_format)
-
-    cur_date = datetime.utcnow()
-    log_path = os.path.join(config.log_dir,
-                            LOG_FILE_FMT.format(cur_date.strftime('%Y%m%dT%H%M%S')))
-
-    fh = logging.FileHandler(filename=log_path)
-
-    fh.setLevel(log_level)
-    fh.setFormatter(formatter)
-
-    base_logger.addHandler(fh)
-
-    # attach a stream handler if this is being run manually
-    if sys.stdout.isatty():
-        sh = logging.StreamHandler()
-
-        sh.setLevel(log_level)
-        sh.setFormatter(formatter)
-
-        base_logger.addHandler(sh)
-
-    # force urllib to be quiet
-    urllib_logger = logging.getLogger('urllib3')
-    urllib_logger.setLevel(logging.WARNING)
-
-
-def get_current_counts(config) -> str:
-    """
+    Used to determine the start point for looking for the current value.
     """
     api = Api(config.username, config.password, config.api_path)
 
     with api:
         text = api.get_page_content(PAGE_NAME)
 
-    keys = ['count_99s',
-            'count_99s_ironman',
-            'count_120s',
-            'count_120s_ironman',
-            'count_200mxp',
-            'count_200mxp_ironman',
-            'lowest_ranks']
+    keys = [
+        "count_99s",
+        "count_99s_ironman",
+        "count_120s",
+        "count_120s_ironman",
+        "count_200mxp",
+        "count_200mxp_ironman",
+        "lowest_ranks",
+    ]
 
     ret = defaultdict(dict)
     rgx = re.compile(r'(\w+?)\[[\'"](.+?)[\'"]\]\s*=\s*[\'"]([\d,]+?)[\'"]')
 
-    for line in text.split('\n'):
+    for line in text.split("\n"):
         if any([line.startswith(x) for x in keys]):
             res = rgx.match(line)
 
             if res is None:
                 continue
 
-            value = int(res.group(3).replace(',', ''))
-            ret[res.group(1)][res.group(2)] = value
+            table = res.group(1)
+            skill_str = res.group(2)
+            value = int(res.group(3).replace(",", ""))
+            suffix = None
+
+            if table == 'lowest_ranks':
+                if '.' in skill_str:
+                    parts = skill_str.split(".", maxsplit=1)
+                    skill_str, suffix = parts
+                else:
+                    suffix = 'level'
+
+            try:
+                skill = Skill.from_str(skill_str)
+            except KeyError as exc:
+                LOGGER.warning("Failed to convert %s to a skill", skill_str)
+                continue
+
+            if suffix is None:
+                ret[table][skill] = value
+            else:
+                if skill not in ret[table]:
+                    ret[table][skill] = {}
+
+                ret[table][skill][suffix] = value
 
     return ret
 
@@ -150,92 +142,89 @@ def get_current_counts(config) -> str:
 def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
     """
     """
-    logger = logging.getLogger(__name__)
-
-    count_99s = current_counts.get('count_99s', {})
-    count_99s_ironman = current_counts.get('count_99s_ironman', {})
-    count_120s = current_counts.get('count_120s', {})
-    count_120s_ironman = current_counts.get('count_120s_ironman', {})
-    count_200mxp = current_counts.get('count_200mxp', {})
-    count_200mxp_ironman = current_counts.get('count_200mxp_ironman', {})
-    lowest_ranks = current_counts.get('lowest_ranks', {})
+    count_99s = current_counts.get("count_99s", {})
+    count_99s_ironman = current_counts.get("count_99s_ironman", {})
+    count_120s = current_counts.get("count_120s", {})
+    count_120s_ironman = current_counts.get("count_120s_ironman", {})
+    count_200mxp = current_counts.get("count_200mxp", {})
+    count_200mxp_ironman = current_counts.get("count_200mxp_ironman", {})
+    lowest_ranks = current_counts.get("lowest_ranks", {})
 
     for skill in Skill:
-        if skill == Skill.OVERALL:
-            continue
+        if skill != Skill.OVERALL:
+            try:
+                count_99s[skill] = hiscores.get_99s(skill, count_99s.get(skill, 1))
+            except HiscoresError as exc:
+                LOGGER.error("Unable to get 99s count for %s", skill.en)
+                LOGGER.exception(exc)
 
-        name = skill.name.lower()
+            try:
+                count_99s_ironman[skill] = hiscores.get_99s_ironman(
+                    skill, count_99s_ironman.get(skill.en, 1)
+                )
+            except HiscoresError as exc:
+                LOGGER.error("Unable to get 99s ironman count for %s", skill.en)
+                LOGGER.exception(exc)
 
-        try:
-            count_99s[name] = hiscores.get_99s(skill, count_99s.get(name, 1))
-        except HiscoresError as exc:
-            logger.error('Unable to get 99s count for %s', name)
-            logger.exception(exc)
+            try:
+                count_120s[skill] = hiscores.get_120s(skill, count_120s.get(skill, 1))
+            except HiscoresError as exc:
+                LOGGER.error("Unable to get 120s count for %s", skill.en)
+                LOGGER.exception(exc)
 
-        try:
-            count_99s_ironman[name] = hiscores.get_99s_ironman(skill, count_99s_ironman.get(name, 1))
-        except HiscoresError as exc:
-            logger.error('Unable to get 99s ironman count for %s', name)
-            logger.exception(exc)
-
-        try:
-            count_120s[name] = hiscores.get_120s(skill, count_120s.get(name, 1))
-        except HiscoresError as exc:
-            logger.error('Unable to get 120s count for %s', name)
-            logger.exception(exc)
-
-        try:
-            count_120s_ironman[name] = hiscores.get_120s_ironman(skill, count_120s_ironman.get(name, 1))
-        except HiscoresError as exc:
-            logger.error('Unable to get 120s ironman count for %s', name)
-            logger.exception(exc)
-
-        try:
-            count_200mxp[name] = hiscores.get_200m_xp(skill, count_200mxp.get(name, 1))
-        except HiscoresError as exc:
-            logger.error('Unable to get 200m XP count for %s', name)
-            logger.exception(exc)
+            try:
+                count_120s_ironman[skill] = hiscores.get_120s_ironman(
+                    skill, count_120s_ironman.get(skill.en, 1)
+                )
+            except HiscoresError as exc:
+                LOGGER.error("Unable to get 120s ironman count for %s", skill.en)
+                LOGGER.exception(exc)
 
         try:
-            count_200mxp_ironman[name] = hiscores.get_200m_xp_ironman(skill, count_200mxp_ironman.get(name, 1))
+            count_200mxp[skill] = hiscores.get_200m_xp(skill, count_200mxp.get(skill, 1))
         except HiscoresError as exc:
-            logger.error('Unable to get 200m XP ironman count for %s', name)
-            logger.exception(exc)
+            LOGGER.error("Unable to get 200m XP count for %s", skill.en)
+            LOGGER.exception(exc)
+
+        try:
+            count_200mxp_ironman[skill] = hiscores.get_200m_xp_ironman(
+                skill, count_200mxp_ironman.get(skill, 1)
+            )
+        except HiscoresError as exc:
+            LOGGER.error("Unable to get 200m XP ironman count for %s", skill.en)
+            LOGGER.exception(exc)
 
         try:
             lowest = hiscores.get_lowest_rank(skill)
-            lowest_ranks[name] = lowest['level']
-            lowest_ranks[name + '.rank'] = lowest['rank']
+            lowest_ranks[skill] = lowest
         except HiscoresError as exc:
-            logger.error('Unable to get lowest rank data for %s', name)
-            logger.exception(exc)
+            LOGGER.error("Unable to get lowest rank data for %s", skill.en)
+            LOGGER.exception(exc)
 
     now = datetime.utcnow()
-    cur_date = now.strftime('%d %B %Y')
 
-    count_99s['updated'] = cur_date
-    count_99s_ironman['updated'] = cur_date
-    count_120s['updated'] = cur_date
-    count_120s_ironman['updated'] = cur_date
-    count_200mxp['updated'] = cur_date
-    count_200mxp_ironman['updated'] = cur_date
-    lowest_ranks['updated'] = cur_date
+    count_99s["updated"] = now
+    count_99s_ironman["updated"] = now
+    count_120s["updated"] = now
+    count_120s_ironman["updated"] = now
+    count_200mxp["updated"] = now
+    count_200mxp_ironman["updated"] = now
+    lowest_ranks["updated"] = now
 
     return {
-        'count_99s': count_99s,
-        'count_99s_ironman': count_99s_ironman,
-        'count_120s': count_120s,
-        'count_120s_ironman': count_120s_ironman,
-        'count_200mxp': count_200mxp,
-        'count_200mxp_ironman': count_200mxp_ironman,
-        'lowest_ranks': lowest_ranks,
+        "count_99s": count_99s,
+        "count_99s_ironman": count_99s_ironman,
+        "count_120s": count_120s,
+        "count_120s_ironman": count_120s_ironman,
+        "count_200mxp": count_200mxp,
+        "count_200mxp_ironman": count_200mxp_ironman,
+        "lowest_ranks": lowest_ranks,
     }
 
 
 def save_counts(config: Config, new_counts: dict):
     """
     """
-    logger = logging.getLogger(__name__)
     api = Api(config.username, config.password, config.api_path)
 
     with api:
@@ -243,19 +232,33 @@ def save_counts(config: Config, new_counts: dict):
 
         for table, counts in new_counts.items():
             for skill, value in counts.items():
-                pattern = r'{}\[[\'"]{}[\'"]\]\s*=\s*[\'"]([\d,]+?)[\'"]'.format(table, skill)
+                if table == "lowest_ranks":
+                    updated = value.pop("updated")
 
-                if skill == 'updated':
-                    pattern = r'{}\[[\'"]{}[\'"]\]\s*=\s*[\'"]([\w ]+?)[\'"]'.format(table, skill)
-                    replace = '{}["{}"] = "{}"'.format(table, skill, value)
+                    for key, val in value.items():
+                        name = skill.en if key == "level" else skill.en + ".rank"
+                        text = replace_count(text, table, name, val, EN_DATE_FMT)
+
+                    text = replace_count(text, table, "updated", updated, EN_DATE_FMT)
                 else:
-                    pattern = r'{}\[[\'"]{}[\'"]\]\s*=\s*[\'"]([\d,]+?)[\'"]'.format(table, skill)
-                    replace = '{}["{}"] = "{:,}"'.format(table, skill, value)
+                    text = replace_count(text, table, skill.en, value, EN_DATE_FMT)
 
-                text = re.sub(pattern, replace, text)
-
-        api.edit_page(PAGE_NAME, text, 'Updating hiscore counts')
+        api.edit_page(PAGE_NAME, text, "Updating hiscore counts")
 
 
-if __name__ == '__main__':
+def replace_count(text: str, table: str, name: str, value: int, date_fmt: str) -> str:
+    """
+    """
+    if name == "updated":
+        pattern = UPDATED_PATTERN.format(table=table, name=name)
+        replace = UPDATED_REPLACE.format(table=table, name=name, value=value.strftime(date_fmt))
+    else:
+        pattern = SKILL_PATTERN.format(table=table, name=name)
+        replace = SKILL_REPLACE.format(table=table, name=name, value=value)
+
+    text = re.sub(pattern, replace, text)
+    return text
+
+
+if __name__ == "__main__":
     main()

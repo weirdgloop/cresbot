@@ -5,7 +5,7 @@
 
 from contextlib import contextmanager
 from copy import copy
-import enum
+from enum import Enum
 import logging
 import math
 from time import sleep, time
@@ -14,21 +14,27 @@ from bs4 import BeautifulSoup, NavigableString as nstr
 import requests
 
 
-URL = 'http://services.runescape.com/m=hiscore/ranking'
-URL_IRONMAN = 'http://services.runescape.com/m=hiscore_ironman/ranking'
-HEADERS = {'User-Agent': 'RuneScape Wiki Hiscores Counts Updater (Maintained by <cqm.fwd@gmail.com>)'}
+URL = "http://services.runescape.com/m=hiscore/ranking"
+URL_IRONMAN = "http://services.runescape.com/m=hiscore_ironman/ranking"
+HEADERS = {
+    "User-Agent": "RuneScape Wiki Hiscores Counts Updater (Maintained by <cqm.fwd@gmail.com>)"
+}
 
 LOGGER = logging.getLogger(__name__)
 
 
-class Count(enum.Enum):
+class Count(Enum):
+    """The types of hiscores count that can be retieved."""
+
     LEVEL_99 = 1
     LEVEL_120 = 2
     EXP_MAX = 3
     LOWEST_RANK = 4
 
 
-class Exp(enum.Enum):
+class Exp(Enum):
+    """Experience values at given levels."""
+
     XP_99 = 13034431
     XP_120 = 104273167
     XP_99_ELITE = 36073511
@@ -36,7 +42,9 @@ class Exp(enum.Enum):
     XP_MAX = 200000000
 
 
-class Skill(enum.Enum):
+class Skill(Enum):
+    """The skills in RuneScape 3."""
+
     OVERALL = 0
     ATTACK = 1
     DEFENCE = 2
@@ -67,30 +75,77 @@ class Skill(enum.Enum):
     INVENTION = 27
     ARCHAEOLOGY = 28
 
+    def __repr__(self) -> str:
+        return "{}.{}".format(self.__class__.__name__, self.name)
+
+    @classmethod
+    def from_str(cls, value: str):
+        """Convert a string to a skill variant."""
+        return cls[value.upper()]
+
     def is_elite(self) -> bool:
-        """
-        """
+        """Get whether the skill is an elite skill or not."""
         return self in [Skill.INVENTION]
 
     @property
     def xp_99(self) -> int:
-        """
-        """
+        """Get the experience for level 99 in the skill."""
         ret = Exp.XP_99_ELITE if self.is_elite() else Exp.XP_99
         return ret.value
 
     @property
     def xp_120(self) -> int:
-        """
-        """
+        """Get the experience for level 120 in the skill."""
         ret = Exp.XP_120_ELITE if self.is_elite() else Exp.XP_120
         return ret.value
 
     @property
     def xp_max(self) -> int:
-        """
-        """
+        """Get the maximum experience of the skill."""
+        if self == Skill.OVERALL:
+            return sum([x.xp_max for x in Skill if x != Skill.OVERALL])
+
         return Exp.XP_MAX.value
+
+    @property
+    def en(self) -> str:
+        """Get the English name of the skill."""
+        return self.name.lower()  # pylint: disable=no-member
+
+    @property
+    def pt_br(self) -> str:
+        """Get the Brazilian Portuguese name of the skill."""
+        return {
+            Skill.OVERALL: "total",
+            Skill.ATTACK: "ataque",
+            Skill.DEFENCE: "força",
+            Skill.STRENGTH: "defesa",
+            Skill.CONSTITUTION: "condição física",
+            Skill.RANGED: "combate à distância",
+            Skill.PRAYER: "oração",
+            Skill.MAGIC: "magia",
+            Skill.COOKING: "culinária",
+            Skill.WOODCUTTING: "corte de lenha",
+            Skill.FLETCHING: "arco e fcleha",
+            Skill.FISHING: "pesca",
+            Skill.FIREMAKING: "arte do fogo",
+            Skill.CRAFTING: "artesanato",
+            Skill.SMITHING: "metalurgia",
+            Skill.MINING: "mineração",
+            Skill.HERBLORE: "herbologia",
+            Skill.AGILITY: "agilidade",
+            Skill.THIEVING: "roubo",
+            Skill.SLAYER: "extermínio",
+            Skill.FARMING: "agricultura",
+            Skill.RUNECRAFTING: "criação de runas",
+            Skill.HUNTER: "caça",
+            Skill.CONSTRUCTION: "construção",
+            Skill.SUMMONING: "evocação",
+            Skill.DUNGEONEERING: "dungeon",
+            Skill.DIVINATION: "divinação",
+            Skill.INVENTION: "invenção",
+            Skill.ARCHAEOLOGY: "arqueologia",
+        }[self]
 
 
 class Hiscores:
@@ -99,37 +154,39 @@ class Hiscores:
 
     def __init__(self, delay: int = 12):
         """
+
+        :param int delay: The initial delay between requests to the Hiscores page in seconds. May
+            increase if requests are blocked.Defaults to 12.
         """
+        self.delay = delay
+
         self._last = None
         self._url = None
         self._total_requests = 0
         self._error_requests = 0
-        self._delay = delay
-        self._default_params = {'category_type': 0, 'table': 0, 'page': 0}
+        self._default_params = {"category_type": 0, "table": 0, "page": 0}
 
     @contextmanager
     def set_url(self, url: str):
+        """Set the ``url`` attribute within a context.
+
+        :param str url: The URL to use.
+        """
         self._url = url
         yield
         self._url = None
 
     @property
-    def delay(self) -> int:
-        """
-        """
-        return self._delay
-
-    @property
     def total_requests(self) -> int:
-        """
-        """
+        """Get the total number of requests."""
         return self._total_requests
 
     @property
-    def error_requests(self):
+    def error_requests(self) -> int:
+        """Get the number of requests that resulted in an error."""
         return self._error_requests
 
-    def __get(self, params: dict) -> BeautifulSoup:
+    def _get(self, params: dict) -> BeautifulSoup:
         """
 
         :param **params:
@@ -143,25 +200,28 @@ class Hiscores:
         self._total_requests += 1
         self._last = time()
 
-        soup = BeautifulSoup(res.text, 'html.parser')
-        errors = soup.select('#errorContent')
+        soup = BeautifulSoup(res.text, "html.parser")
+        errors = soup.select("#errorContent")
 
         # handle ratelimit
-        if len(errors):
-            self._delay += 1
+        if errors:
+            self.delay += 1
             self._error_requests += 1
 
-            LOGGER.warning('Request error: %s', res.url)
-            LOGGER.warning('Assuming ratelimit, sleeping for 30 seconds and incrementing delay between requests to %s',           self._delay)
+            LOGGER.warning("Request error: %s", res.url)
+            LOGGER.warning(
+                "Assuming ratelimit, sleeping for 30 seconds and incrementing delay between requests to %s",
+                self.delay,
+            )
             sleep(30)
 
-            return self.__get(params)
+            return self._get(params)
 
-        LOGGER.debug('Request success: %s', res.url)
+        LOGGER.debug("Request success: %s", res.url)
 
         return soup
 
-    def __find_value(
+    def _find_value(
         self,
         params: dict,
         column: int,
@@ -170,7 +230,7 @@ class Hiscores:
         _checked: list = None,
         _up: bool = None,
         _found: bool = False,
-        _reqs: int = 0
+        _reqs: int = 0,
     ) -> int:
         """
 
@@ -184,21 +244,20 @@ class Hiscores:
         if _checked is None:
             _checked = []
 
-        soup = self.__get(params)
-        rows = (x for x in soup.select('div.tableWrap tbody tr') \
-                if not isinstance(x, nstr))
+        soup = self._get(params)
+        rows = (x for x in soup.select("div.tableWrap tbody tr") if not isinstance(x, nstr))
         trs = []
 
-        for tr in rows:
-            tds = (x for x in tr.contents if not isinstance(x, nstr))
-            trs.append(tuple(tds))
+        for row in rows:
+            cells = (x for x in row.contents if not isinstance(x, nstr))
+            trs.append(tuple(cells))
 
         # check if the last value on the page is `value`
         # if so jump forwards
-        last_val = trs[-1][column].a.string.strip().replace(',', '')
+        last_val = trs[-1][column].a.string.strip().replace(",", "")
 
         if int(last_val) >= value:
-            if not len(_checked):
+            if not _checked:
                 _up = True
             # only increase the step after first request
             else:
@@ -212,26 +271,26 @@ class Hiscores:
 
             # check if the next page has already been visited
             # to stop an infinite loop
-            if (params.get('page') + 1) in _checked:
+            if params.get("page") + 1 in _checked:
                 rank = trs[-1][0].a.string.strip()
-                return int(rank.replace(',', ''))
+                return int(rank.replace(",", ""))
 
             # track which pages have already been visited
-            _checked.append(params.get('page'))
-            params['page'] += int(_step)
-            return self.__find_value(params, column, value, _step, _checked, _up, _found)
+            _checked.append(params.get("page"))
+            params["page"] += int(_step)
+            return self._find_value(params, column, value, _step, _checked, _up, _found)
 
         # check if the first value if less than `value`
         # if so jump backwards
-        first_val = trs[0][column].a.string.strip().replace(',', '')
+        first_val = trs[0][column].a.string.strip().replace(",", "")
 
         if int(first_val) < value:
             # check we're not on the first page (no players have `value`)
-            if params.get('page') == 1:
-                LOGGER.info('Found after checking %s pages', len(_checked))
+            if params.get("page") == 1:
+                LOGGER.debug("Found after checking %s page(s)", len(_checked) + 1)
                 return 0
 
-            if not len(_checked):
+            if not _checked:
                 _up = False
             # only increase the step after first request
             else:
@@ -245,20 +304,20 @@ class Hiscores:
 
             # check if the previous page has already been visited
             # to stop an infinite loop
-            if (params['page'] - 1) in _checked:
+            if params["page"] - 1 in _checked:
                 rank = trs[0][0].a.string.strip()
-                LOGGER.info('Found after checking %s pages', len(_checked))
-                return int(rank.replace(',', ''))
+                LOGGER.debug("Found after checking %s page(s)", len(_checked) + 1)
+                return int(rank.replace(",", ""))
 
             # track which pages have already been visited
-            _checked.append(params.get('page'))
-            params['page'] -= int(_step)
+            _checked.append(params.get("page"))
+            params["page"] -= int(_step)
 
             # don't let the page drop below 1
-            if params['page'] < 1:
-                raise Exception('Page number dropped below 1.')
+            if params["page"] < 1:
+                raise RuntimeError("Page number dropped below 1.")
 
-            return self.__find_value(params, column, value, _step, _checked, _up, _found)
+            return self._find_value(params, column, value, _step, _checked, _up, _found)
 
         # we should be on the correct page, so check every value
         # until one is found that matches `value`
@@ -266,48 +325,64 @@ class Hiscores:
 
         for tds in trs:
             rank = tds[0].a.string.strip()
-            val = tds[column].a.string.strip().replace(',', '')
+            val = tds[column].a.string.strip().replace(",", "")
 
             if int(val) >= value:
                 data.append(rank)
             else:
                 break
 
-        LOGGER.info('Found after checking %s pages', len(_checked))
-        return int(data[-1].replace(',', ''))
+        LOGGER.info("Found after checking %s pages", len(_checked))
+        return int(data[-1].replace(",", ""))
 
     def get_99s(self, skill: Skill, last: int = 0) -> int:
-        """
+        """Get the number of players with level 99 in a skill.
+
+        :param Skill skill: The skill to get data for.
+        :param int last: The last known number of players with level 99 in the skill.
+
+        :return: The number of players with 99 in the requested skill.
+        :rtype: int
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug('Start page for %s 99s count: %s (rank: %s)',
-                     skill.name.capitalize(), start_page, last)
+        LOGGER.debug(
+            "Start page for %s 99s count: %s (rank: %s)", skill.en, start_page, last
+        )
 
         params = copy(self._default_params)
-        params.update({'table': skill.value, 'page': start_page})
+        params.update({"table": skill.value, "page": start_page})
 
         with self.set_url(URL):
-            ret = self.__find_value(params, 3, skill.xp_99)
-            LOGGER.info('%s 99s count: %s', skill.name.capitalize(), ret)
+            ret = self._find_value(params, 3, skill.xp_99)
+            LOGGER.info("%s 99s count: %s", skill.en, ret)
 
         return ret
 
-
     def get_99s_ironman(self, skill: Skill, last: int = 0) -> int:
-        """
+        """Get the number of ironman players with level 99 in a skill.
+
+        :param Skill skill: The skill to get data for.
+        :param int last: The last known number of players with level 99 in the skill.
+
+        :return: The number of players with 99 in the requested skill.
+        :rtype: int
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug('Start page for %s 99s ironman count: %s (rank: %s)',
-                     skill.name.capitalize(), start_page, last)
+        LOGGER.debug(
+            "Start page for %s 99s ironman count: %s (rank: %s)",
+            skill.en,
+            start_page,
+            last,
+        )
 
         params = copy(self._default_params)
-        params.update({'table': skill.value, 'page': start_page})
+        params.update({"table": skill.value, "page": start_page})
 
         with self.set_url(URL_IRONMAN):
-            ret = self.__find_value(params, 3, skill.xp_99)
-            LOGGER.info('%s 99s ironman count: %s', skill.name.capitalize(), ret)
+            ret = self._find_value(params, 3, skill.xp_99)
+            LOGGER.info("%s 99s ironman count: %s", skill.en, ret)
 
         return ret
 
@@ -316,32 +391,43 @@ class Hiscores:
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug('Start page for %s 120s count: %s (rank: %s)',
-                     skill.name.capitalize(), start_page, last)
+        LOGGER.debug(
+            "Start page for %s 120s count: %s (rank: %s)", skill.en, start_page, last
+        )
 
         params = copy(self._default_params)
-        params.update({'table': skill.value, 'page': start_page})
+        params.update({"table": skill.value, "page": start_page})
 
         with self.set_url(URL):
-            ret = self.__find_value(params, 3, skill.xp_120)
-            LOGGER.info('%s 120s count: %s', skill.name.capitalize(), ret)
+            ret = self._find_value(params, 3, skill.xp_120)
+            LOGGER.info("%s 120s count: %s", skill.en, ret)
 
         return ret
 
     def get_120s_ironman(self, skill: Skill, last: int = 0) -> int:
-        """
+        """Get the number of players with level 120 in a skill.
+
+        :param Skill skill: The skill to get data for.
+        :param int last: The last known number of players with level 120 in the skill.
+
+        :return: The number of players with 120 in the requested skill.
+        :rtype: int
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug('Start page for %s 120s ironman count: %s (rank: %s)',
-                     skill.name.capitalize(), start_page, last)
+        LOGGER.debug(
+            "Start page for %s 120s ironman count: %s (rank: %s)",
+            skill.en,
+            start_page,
+            last,
+        )
 
         params = copy(self._default_params)
-        params.update({'table': skill.value, 'page': start_page})
+        params.update({"table": skill.value, "page": start_page})
 
         with self.set_url(URL_IRONMAN):
-            ret = self.__find_value(params, 3, skill.xp_120)
-            LOGGER.info('%s 120s ironman count: %s', skill.name.capitalize(), ret)
+            ret = self._find_value(params, 3, skill.xp_120)
+            LOGGER.info("%s 120s ironman count: %s", skill.en, ret)
 
         return ret
 
@@ -350,15 +436,19 @@ class Hiscores:
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug('Start page for %s 200m XP count: %s (rank: %s)',
-                     skill.name.capitalize(), start_page, last)
+        LOGGER.debug(
+            "Start page for %s 200m XP count: %s (rank: %s)",
+            skill.en,
+            start_page,
+            last,
+        )
 
         params = copy(self._default_params)
-        params.update({'table': skill.value, 'page': start_page})
+        params.update({"table": skill.value, "page": start_page})
 
         with self.set_url(URL):
-            ret = self.__find_value(params, 3, skill.xp_max)
-            LOGGER.info('%s 200m XP count: %s', skill.name.capitalize(), ret)
+            ret = self._find_value(params, 3, skill.xp_max)
+            LOGGER.info("%s 200m XP count: %s", skill.en, ret)
 
         return ret
 
@@ -367,15 +457,19 @@ class Hiscores:
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug('Start page for %s 200m ironman XP count: %s (rank: %s)',
-                     skill.name.capitalize(), start_page, last)
+        LOGGER.debug(
+            "Start page for %s 200m ironman XP count: %s (rank: %s)",
+            skill.en,
+            start_page,
+            last,
+        )
 
         params = copy(self._default_params)
-        params.update({'table': skill.value, 'page': start_page})
+        params.update({"table": skill.value, "page": start_page})
 
         with self.set_url(URL_IRONMAN):
-            ret = self.__find_value(params, 3, skill.xp_max)
-            LOGGER.info('%s 200m XP ironman count: %s', skill.name.capitalize(), ret)
+            ret = self._find_value(params, 3, skill.xp_max)
+            LOGGER.info("%s 200m XP ironman count: %s", skill.en, ret)
 
         return ret
 
@@ -390,23 +484,26 @@ class Hiscores:
         with self.set_url(URL):
             # load the first page and look for a link to the last page
             params = copy(self._default_params)
-            params.update({'table': skill.value, 'page': 1})
-            soup = self.__get(params)
+            params.update({"table": skill.value, "page": 1})
+            soup = self._get(params)
             # should be 7 keys here
-            page = soup.select('.pageNumbers li a')[-1].string
+            page = soup.select(".pageNumbers li a")[-1].string
 
             # load the page and get the last row of the hiscores table
-            params.update({'page': page})
-            soup = self.__get(params)
-            cells = tuple(x for x in soup.select('div.tableWrap tbody tr') \
-                          [-1].contents if not isinstance(x, nstr))
+            params.update({"page": page})
+            soup = self._get(params)
+            cells = tuple(
+                x
+                for x in soup.select("div.tableWrap tbody tr")[-1].contents
+                if not isinstance(x, nstr)
+            )
 
-            rank = int(cells[0].a.string.strip().replace(',', ''))
-            level = int(cells[2].a.string.strip().replace(',', ''))
+            rank = int(cells[0].a.string.strip().replace(",", ""))
+            level = int(cells[2].a.string.strip().replace(",", ""))
 
-        LOGGER.info("%s lowest rank: %s, level: %s", skill.name.capitalize(), rank, level)
+        LOGGER.info("%s lowest rank: %s, level: %s", skill.en, rank, level)
 
         return {
-            'rank': rank,
-            'level': level,
+            "rank": rank,
+            "level": level,
         }

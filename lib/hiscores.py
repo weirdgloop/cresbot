@@ -118,8 +118,8 @@ class Skill(Enum):
         return {
             Skill.OVERALL: "total",
             Skill.ATTACK: "ataque",
-            Skill.DEFENCE: "força",
-            Skill.STRENGTH: "defesa",
+            Skill.DEFENCE: "defesa",
+            Skill.STRENGTH: "força",
             Skill.CONSTITUTION: "condição física",
             Skill.RANGED: "combate à distância",
             Skill.PRAYER: "oração",

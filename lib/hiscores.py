@@ -332,7 +332,7 @@ class Hiscores:
             else:
                 break
 
-        LOGGER.info("Found after checking %s pages", len(_checked))
+        LOGGER.info("Found after checking %s pages", len(_checked) + 1)
         return int(data[-1].replace(",", ""))
 
     def get_99s(self, skill: Skill, last: int = 0) -> int:
@@ -346,9 +346,7 @@ class Hiscores:
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug(
-            "Start page for %s 99s count: %s (rank: %s)", skill.en, start_page, last
-        )
+        LOGGER.debug("Start page for %s 99s count: %s (rank: %s)", skill.en, start_page, last)
 
         params = copy(self._default_params)
         params.update({"table": skill.value, "page": start_page})
@@ -371,10 +369,7 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 99s ironman count: %s (rank: %s)",
-            skill.en,
-            start_page,
-            last,
+            "Start page for %s 99s ironman count: %s (rank: %s)", skill.en, start_page, last,
         )
 
         params = copy(self._default_params)
@@ -391,9 +386,7 @@ class Hiscores:
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug(
-            "Start page for %s 120s count: %s (rank: %s)", skill.en, start_page, last
-        )
+        LOGGER.debug("Start page for %s 120s count: %s (rank: %s)", skill.en, start_page, last)
 
         params = copy(self._default_params)
         params.update({"table": skill.value, "page": start_page})
@@ -416,10 +409,7 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 120s ironman count: %s (rank: %s)",
-            skill.en,
-            start_page,
-            last,
+            "Start page for %s 120s ironman count: %s (rank: %s)", skill.en, start_page, last,
         )
 
         params = copy(self._default_params)
@@ -437,10 +427,7 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 200m XP count: %s (rank: %s)",
-            skill.en,
-            start_page,
-            last,
+            "Start page for %s 200m XP count: %s (rank: %s)", skill.en, start_page, last,
         )
 
         params = copy(self._default_params)
@@ -458,10 +445,7 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 200m ironman XP count: %s (rank: %s)",
-            skill.en,
-            start_page,
-            last,
+            "Start page for %s 200m ironman XP count: %s (rank: %s)", skill.en, start_page, last,
         )
 
         params = copy(self._default_params)

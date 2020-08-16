@@ -1,9 +1,7 @@
 #
 
-"""
-"""
+"""Utilities for the CLI."""
 
-import argparse
 from datetime import datetime
 import logging
 import sys
@@ -12,7 +10,7 @@ import os
 from .config import Config
 
 
-__all__ = ['setup_logging']
+__all__ = ["setup_logging"]
 
 LOG_LEVELS = [logging.WARNING, logging.INFO, logging.DEBUG]
 
@@ -26,8 +24,8 @@ def setup_logging(verbose: int, config: Config, log_file_fmt: str):
     """
     log_level = LOG_LEVELS[min(verbose, 2)]
 
-    log_format = '[%(asctime)s][%(levelname)s][%(name)s] %(message)s'
-    date_format = '%H:%M:%S'
+    log_format = "[%(asctime)s][%(levelname)s][%(name)s] %(message)s"
+    date_format = "%H:%M:%S"
 
     base_logger = logging.getLogger()
     base_logger.setLevel(log_level)
@@ -35,8 +33,9 @@ def setup_logging(verbose: int, config: Config, log_file_fmt: str):
     formatter = logging.Formatter(log_format, datefmt=date_format)
 
     cur_date = datetime.utcnow()
-    log_path = os.path.join(config.log_dir,
-                            log_file_fmt.format(cur_date.strftime('%Y-%m-%d_%H-%M-%S')))
+    log_path = os.path.join(
+        config.log_dir, log_file_fmt.format(cur_date.strftime("%Y-%m-%d_%H-%M-%S"))
+    )
 
     fh = logging.FileHandler(filename=log_path)
 
@@ -55,5 +54,5 @@ def setup_logging(verbose: int, config: Config, log_file_fmt: str):
         base_logger.addHandler(sh)
 
     # force urllib to be quiet
-    urllib_logger = logging.getLogger('urllib3')
+    urllib_logger = logging.getLogger("urllib3")
     urllib_logger.setLevel(logging.WARNING)

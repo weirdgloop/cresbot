@@ -65,8 +65,7 @@ class Api:
         return ret
 
     def get_token(self, token: str = "csrf"):
-        """
-        Get a token from the API.
+        """Get a token from the API.
 
         :param token_type: A string or list, tuple or set of strings containing the tokens
             required. Valid token types are: 'createaccount', 'csrf', 'login', 'patrol',
@@ -94,10 +93,10 @@ class Api:
         return tokens
 
     def login(self, is_bot: bool = False):
-        """
-        Logs into the API using the credentials supplied in the class constructor. This uses the
-        old action=login endpoint which requires a password to be set up using Special:BotPasswords
-        in newer version of MediaWiki.
+        """Logs into the API using the credentials supplied in the class constructor.
+
+        This uses the old action=login endpoint which requires a password to be set up using
+        Special:BotPasswords in newer version of MediaWiki.
 
         :param bool is_bot: Indicates whether the credentials are for a bot or not. If ``True``,
             subsequent requests will pass ``assert='bot'`` with all API requests. If ``False``,
@@ -119,15 +118,17 @@ class Api:
         self.assert_param = "bot" if is_bot else "user"
 
     def logout(self):
-        """
-        Logs out of the API.
-        """
+        """Logs out of the API."""
         LOGGER.debug("Logging %r out of %r", self.username, self.api_path)
         self._call(action="logout")
         self.assert_param = None
 
     def get_page_content(self, pagename: str) -> str:
-        """
+        """Get the content of a page.
+
+        :param str pagename:
+
+        :return: The page content.
         """
         LOGGER.debug("Requesting page content of %r", pagename)
         res = self._call(action="query", prop="revisions", titles=pagename, rvprop="content",)

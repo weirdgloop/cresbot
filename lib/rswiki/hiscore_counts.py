@@ -4,8 +4,10 @@
 """
 
 from collections import defaultdict
+from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
+import locale
 import logging
 import re
 
@@ -20,13 +22,58 @@ __all__ = []
 
 LOGGER = logging.getLogger(__name__)
 
-EN_DATE_FMT = "%d %B %Y"
-
 SKILL_PATTERN = r'{table}\[[\'"]{name}[\'"]\]\s*=\s*[\'"]([\d,]+?)[\'"]'
 SKILL_REPLACE = '{table}["{name}"] = "{value:,}"'
 
 UPDATED_PATTERN = r'{table}\[[\'"]{name}[\'"]\]\s*=\s*[\'"]([\w ]+?)[\'"]'
 UPDATED_REPLACE = '{table}["{name}"] = "{value}"'
+
+
+class Language(Enum):
+    """The possible languages for the module."""
+
+    EN = "en"
+    PT_BR = "pt-br"
+
+    @property
+    def module(self) -> str:
+        """Get the name of the module for the language."""
+        return {Language.EN: "Module:Hiscore counts", Language.PT_BR: "???",}[self]
+
+    @property
+    def updated(self) -> str:
+        """Get the translation for 'updated'."""
+        return {Language.EN: "updated", Language.PT_BR: "???",}[self]
+
+    @property
+    def level(self) -> str:
+        """Get the translation for 'level'."""
+        return {Language.EN: "level", Language.PT_BR: "???",}[self]
+
+    @property
+    def rank(self) -> str:
+        """Get the translation for 'rank'."""
+        return {Language.EN: "rank", Language.PT_BR: "???",}[self]
+
+    @property
+    def date_fmt(self) -> str:
+        """Get the date format for the language."""
+        return {Language.EN: "%d %B %Y", Language.PT_BR: "%d de %B de %Y",}[self]
+
+    @property
+    def edit_summary(self):
+        """Get the edit summary for the language."""
+        return {Language.EN: "Updating hiscore counts", Language.PT_BR: "???",}[self]
+
+    @contextmanager
+    def locale(self):
+        """Set the time locale for the language within a context."""
+        locale_string = {Language.EN: "en_GB.UTF-8", Language.PT_BR: "pt_BR.utf8"}[self]
+
+        prev_locale_string = locale.getlocale(locale.LC_TIME)
+        locale.setlocale(locale.LC_TIME, locale_string)
+        yield
+        locale.setlocale(locale.LC_TIME, prev_locale_string)
 
 
 class Table(Enum):
@@ -167,13 +214,13 @@ def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
 
     now = datetime.utcnow()
 
-    count_99s["updated"] = now
-    count_99s_ironman["updated"] = now
-    count_120s["updated"] = now
-    count_120s_ironman["updated"] = now
-    count_200mxp["updated"] = now
-    count_200mxp_ironman["updated"] = now
-    lowest_ranks["updated"] = now
+    count_99s[Language.EN.updated] = now
+    count_99s_ironman[Language.EN.updated] = now
+    count_120s[Language.EN.updated] = now
+    count_120s_ironman[Language.EN.updated] = now
+    count_200mxp[Language.EN.updated] = now
+    count_200mxp_ironman[Language.EN.updated] = now
+    lowest_ranks[Language.EN.updated] = now
 
     return {
         Table.COUNT_99: count_99s,
@@ -186,39 +233,47 @@ def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
     }
 
 
-def save_counts(config: Config, page: str, new_counts: dict):
+def save_counts(config: Config, lang: Language, new_counts: dict):
     """
     """
     api = Api(config.username, config.password, config.api_path)
 
     with api:
-        text = api.get_page_content(page)
+        text = api.get_page_content(lang.module)
 
-        for table, counts in new_counts.items():
-            updated = counts.pop("updated")
+        with lang.locale():
+            for table, counts in new_counts.items():
+                table_local = getattr(table, lang.value)
+                updated = counts.pop(Language.EN.updated)
 
-            for skill, value in counts.items():
-                if table == Table.LOWEST_RANKS:
-                    for key, val in value.items():
-                        name = skill.en if key == "level" else skill.en + ".rank"
-                        text = replace_count(text, table, name, val, EN_DATE_FMT)
-                else:
-                    text = replace_count(text, table, skill.en, value, EN_DATE_FMT)
+                for skill, value in counts.items():
+                    skill_local = getattr(skill, lang.value)
 
-            text = replace_count(text, table, "updated", updated, EN_DATE_FMT)
+                    if table == Table.LOWEST_RANKS:
+                        for key, val in value.items():
+                            if key == Language.EN.level:
+                                name = skill_local
+                            else:
+                                name = skill_local + ".{}".format(lang.rank)
 
-        LOGGER.info("Updating hiscore counts")
-        api.edit_page(page, text, "Updating hiscore counts")
+                            text = replace_count(text, table_local, name, val, lang.date_fmt)
+                    else:
+                        text = replace_count(text, table_local, skill_local, value, lang.date_fmt)
+
+                text = replace_count(text, table_local, lang.updated, updated, lang.date_fmt)
+
+        LOGGER.info("Updating hiscore counts for API: %s", api.api_path)
+        api.edit_page(lang.module, text, lang.edit_summary)
 
 
-def replace_count(text: str, table: Table, name: str, value: int, date_fmt: str) -> str:
+def replace_count(text: str, table: str, name: str, value: int, date_fmt: str) -> str:
     """
     """
     if name == "updated":
-        pattern = UPDATED_PATTERN.format(table=table.en, name=name)
-        replace = UPDATED_REPLACE.format(table=table.en, name=name, value=value.strftime(date_fmt))
+        pattern = UPDATED_PATTERN.format(table=table, name=name)
+        replace = UPDATED_REPLACE.format(table=table, name=name, value=value.strftime(date_fmt))
     else:
-        pattern = SKILL_PATTERN.format(table=table.en, name=name)
-        replace = SKILL_REPLACE.format(table=table.en, name=name, value=value)
+        pattern = SKILL_PATTERN.format(table=table, name=name)
+        replace = SKILL_REPLACE.format(table=table, name=name, value=value)
 
     return re.sub(pattern, replace, text)

@@ -33,7 +33,8 @@ class ProxyList:
 
 		:param List[str] proxies: The proxies to iterator over.
 		:param int delay: The minimum amount of time to wait between re-using a proxy in seconds.
-            Used to avoid sending too many requests from a single IP address within a given time period.
+            Used to avoid sending too many requests from a single IP address within a given time
+            period.
         :param int iter_delay: The minimum amount of time to wait between outputting the next
             element in the iteration in seconds. Defaults to 1. Used to avoid sending too many
             requests overall and overloading the target site.

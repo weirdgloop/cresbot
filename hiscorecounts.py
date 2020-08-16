@@ -10,7 +10,7 @@ from lib.config import Config
 from lib.util import setup_logging
 from lib.hiscores import Hiscores
 from lib.proxy_list import ProxyList
-from lib.rswiki.hiscore_counts import get_current_counts, update_counts, save_counts
+from lib.rswiki.hiscore_counts import get_current_counts, update_counts, save_counts, Language
 
 
 LOGGER = logging.getLogger(__name__)
@@ -32,10 +32,10 @@ def main():
     start = datetime.utcnow()
 
     try:
-        cur_counts = get_current_counts(config, PAGE_NAME)
+        cur_counts = get_current_counts(config, Language.EN.module)
         new_counts = update_counts(cur_counts, hiscores)
 
-        save_counts(config, PAGE_NAME, new_counts)
+        save_counts(config, Language.EN, new_counts)
     except Exception as exc:
         LOGGER.exception(exc)
     else:

@@ -41,6 +41,7 @@ def request_retry(retries: int):
             return ret
 
         return retry_with_args
+
     return retry
 
 
@@ -225,7 +226,7 @@ class Hiscores:
         self._total_requests += 1
 
         if res.status_code != 200:
-            raise RuntimeError("Request failed with proxy: %s", proxy)
+            raise RuntimeError("Request failed with proxy: {}".format(proxy))
 
         soup = BeautifulSoup(res.text, "html.parser")
         errors = soup.select("#errorContent")

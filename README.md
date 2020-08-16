@@ -62,9 +62,9 @@ Crontab setup should be along the following lines (use `crontab -e` to edit):
 # need to use bash as the shell so source works
 SHELL=/bin/bash
 
-# run hiscore counts updater every day at midnight
-0 0 * * * cd /path/to/cresbot && ./venv/bin/python hiscorecounts.py config.toml -vv
+# run hiscore counts updater every 6 hours
+0 */6 * * * cd /path/to/cresbot && ./venv/bin/python hiscorecounts.py config.toml -vv
 
-# manage logs
-0 12 * * * cd /path/to/cresbot && ./manage-logs.sh
+# manage logs every 6 hours
+0 3,9,15,21 * * * cd /path/to/cresbot && ./manage-logs.sh
 ```

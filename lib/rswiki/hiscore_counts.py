@@ -38,22 +38,22 @@ class Language(Enum):
     @property
     def module(self) -> str:
         """Get the name of the module for the language."""
-        return {Language.EN: "Module:Hiscore counts", Language.PT_BR: "???",}[self]
+        return {Language.EN: "Module:Hiscore counts", Language.PT_BR: "Módulo:Contagem de Recordes",}[self]
 
     @property
     def updated(self) -> str:
         """Get the translation for 'updated'."""
-        return {Language.EN: "updated", Language.PT_BR: "???",}[self]
+        return {Language.EN: "updated", Language.PT_BR: "data",}[self]
 
     @property
     def level(self) -> str:
         """Get the translation for 'level'."""
-        return {Language.EN: "level", Language.PT_BR: "???",}[self]
+        return {Language.EN: "level", Language.PT_BR: "nível",}[self]
 
     @property
     def rank(self) -> str:
         """Get the translation for 'rank'."""
-        return {Language.EN: "rank", Language.PT_BR: "???",}[self]
+        return {Language.EN: "rank", Language.PT_BR: "rank",}[self]
 
     @property
     def date_fmt(self) -> str:
@@ -63,7 +63,7 @@ class Language(Enum):
     @property
     def edit_summary(self):
         """Get the edit summary for the language."""
-        return {Language.EN: "Updating hiscore counts", Language.PT_BR: "???",}[self]
+        return {Language.EN: "Updating hiscore counts", Language.PT_BR: "Atualizando a contagem de recordes",}[self]
 
     @contextmanager
     def locale(self):
@@ -99,6 +99,19 @@ class Table(Enum):
     def en(self) -> str:
         """Get the English name of the table."""
         return self.value
+
+    @property
+    def pt_br(self) -> str:
+        """Get the Brazilian name of the table."""
+        return {
+            Table.COUNT_99: "contagem_99s",
+            Table.COUNT_99_IRONMAN: "contagem_99s_independente",
+            Table.COUNT_120: "contagem_120s",
+            Table.COUNT_120_IRONMAN: "contagem_120s_independente",
+            Table.COUNT_200MXP: "contagem_200mxp",
+            Table.COUNT_200MXP_IRONMAN: "contagem_200mxp_independente",
+            Table.LOWEST_RANKS: "nivel_minimo"
+        }[self]
 
 
 def get_current_counts(config: Config, page: str) -> str:

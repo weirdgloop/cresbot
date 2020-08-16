@@ -51,7 +51,7 @@ class Api:
 
         # only log get requests to avoid logging sensitive data
         if is_get:
-            LOGGER.debug("Requested: %s", res.url)
+            LOGGER.debug("Requested: %s: %r", res.url, kwargs)
 
         try:
             res.encoding = "utf-8-sig"
@@ -60,7 +60,8 @@ class Api:
             LOGGER.exception(exc)
             raise MediaWikiError("Unable to decode response: {!s}".format(res.text)) from exc
 
-        # TODO: check for errors here
+        if "error" in ret:
+            raise MediaWikiError("Unexpected error: {!r}".format(ret))
 
         return ret
 
@@ -120,7 +121,9 @@ class Api:
     def logout(self):
         """Logs out of the API."""
         LOGGER.debug("Logging %r out of %r", self.username, self.api_path)
-        self._call(action="logout")
+        token = self.get_token()
+
+        self._call(action="logout", token=token)
         self.assert_param = None
 
     def get_page_content(self, pagename: str) -> str:
@@ -150,7 +153,6 @@ class Api:
         :param str summary: An optional edit summary.
         """
         token = self.get_token()
-
         res = self._call(action="edit", title=pagename, summary=summary, text=text, token=token)
 
         try:
@@ -158,3 +160,5 @@ class Api:
                 raise EditError("Edit failed: {}".format(res))
         except KeyError:
             raise MediaWikiError("Unexpected response for edit: {}".format(res))
+
+        LOGGER.debug("Edit result: %r", res)

@@ -49,6 +49,7 @@ class Table(Enum):
         """Get the values of the enum variants."""
         return [x.value for x in cls]
 
+    @property
     def en(self) -> str:
         """Get the English name of the table."""
         return self.value
@@ -207,6 +208,7 @@ def save_counts(config: Config, page: str, new_counts: dict):
 
             text = replace_count(text, table, "updated", updated, EN_DATE_FMT)
 
+        LOGGER.info("Updating hiscore counts")
         api.edit_page(page, text, "Updating hiscore counts")
 
 
@@ -220,5 +222,4 @@ def replace_count(text: str, table: Table, name: str, value: int, date_fmt: str)
         pattern = SKILL_PATTERN.format(table=table.en, name=name)
         replace = SKILL_REPLACE.format(table=table.en, name=name, value=value)
 
-    text = re.sub(pattern, replace, text)
-    return text
+    return re.sub(pattern, replace, text)

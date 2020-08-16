@@ -2,7 +2,7 @@
 # Compress log files to save space and remove old logs
 
 rotate() {
-	local -r MAX=10
+	local -r MAX=40
 	local i=1
 
 	cd /home/cqm/cresbot/logs/

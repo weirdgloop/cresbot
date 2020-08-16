@@ -7,7 +7,6 @@ from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 import logging
-from pprint import pprint
 import re
 
 from ..config import Config

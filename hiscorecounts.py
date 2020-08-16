@@ -9,6 +9,7 @@ import logging
 from lib.config import Config
 from lib.util import setup_logging
 from lib.hiscores import Hiscores
+from lib.proxy_list import ProxyList
 from lib.rswiki.hiscore_counts import get_current_counts, update_counts, save_counts
 
 
@@ -17,6 +18,8 @@ LOGGER = logging.getLogger(__name__)
 LOG_FILE_FMT = "hiscorecounts-{}.log"
 PAGE_NAME = "Module:Hiscore counts"
 
+PROXY_URL_FMT = "https://us-central1-runescape-wiki.cloudfunctions.net/exchange{}"
+
 
 def main():
     """Program entry point."""
@@ -24,7 +27,8 @@ def main():
     config = Config.from_toml(args.config)
     setup_logging(args.verbose, config, LOG_FILE_FMT)
 
-    hiscores = Hiscores()
+    proxy_list = ProxyList([PROXY_URL_FMT.format(i) for i in range(1, 73)], 12)
+    hiscores = Hiscores(proxy_list)
     start = datetime.utcnow()
 
     try:
@@ -43,7 +47,7 @@ def main():
             "STATS: hiscores requests: %s, hiscore errors: %s, end_delay: %s, total_time: %s",
             hiscores.total_requests,
             hiscores.error_requests,
-            hiscores.delay,
+            hiscores.proxy_list.delay,
             str(end - start),
         )
         # TODO: update stats

@@ -8,10 +8,12 @@ from copy import copy
 from enum import Enum
 import logging
 import math
-from time import sleep, time
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 from bs4 import BeautifulSoup, NavigableString as nstr
 import requests
+
+from .proxy_list import ProxyList
 
 
 URL = "http://services.runescape.com/m=hiscore/ranking"
@@ -21,6 +23,25 @@ HEADERS = {
 }
 
 LOGGER = logging.getLogger(__name__)
+
+
+def request_retry(retries: int):
+    def retry(func):
+        def retry_with_args(*args, **kwargs):
+            for i in range(retries):
+                try:
+                    ret = func(*args, **kwargs)
+                    break
+                except RuntimeError as exc:
+                    LOGGER.warning(exc)
+                    LOGGER.warning("Request failed: attempt %s/%s", i + 1, retries)
+            else:
+                raise RuntimeError("Failed after {} retries".format(retries))
+
+            return ret
+
+        return retry_with_args
+    return retry
 
 
 class Count(Enum):
@@ -152,15 +173,12 @@ class Hiscores:
     """
     """
 
-    def __init__(self, delay: int = 12):
+    def __init__(self, proxy_list: ProxyList):
         """
-
-        :param int delay: The initial delay between requests to the Hiscores page in seconds. May
-            increase if requests are blocked.Defaults to 12.
         """
-        self.delay = delay
+        self.proxy_list = proxy_list
+        self.proxy_list_iter = iter(proxy_list)
 
-        self._last = None
         self._url = None
         self._total_requests = 0
         self._error_requests = 0
@@ -186,38 +204,41 @@ class Hiscores:
         """Get the number of requests that resulted in an error."""
         return self._error_requests
 
+    @request_retry(retries=5)
     def _get(self, params: dict) -> BeautifulSoup:
         """
 
         :param **params:
         """
-        if self._last is not None:
-            while time() < (self._last + self.delay):
-                sleep(1)
+        proxy = next(self.proxy_list_iter)
 
-        res = requests.get(self._url, params=params, headers=HEADERS)
+        url_parts = list(urlparse(self._url))
+        query = dict(parse_qsl(url_parts[4]))
+        query.update(params)
+
+        url_parts[4] = urlencode(query)
+        url = urlunparse(url_parts)
+
+        res = requests.get(proxy, params={"url": url}, headers=HEADERS)
+        LOGGER.debug("Response status: %s", res.status_code)
 
         self._total_requests += 1
-        self._last = time()
+
+        if res.status_code != 200:
+            raise RuntimeError("Request failed with proxy: %s", proxy)
 
         soup = BeautifulSoup(res.text, "html.parser")
         errors = soup.select("#errorContent")
 
         # handle ratelimit
         if errors:
-            self.delay += 1
+            self.proxy_list_iter.delay += 1
             self._error_requests += 1
 
-            LOGGER.warning("Request error: %s", res.url)
-            LOGGER.warning(
-                "Assuming ratelimit, sleeping for 30 seconds and incrementing delay between requests to %s",
-                self.delay,
-            )
-            sleep(30)
-
+            LOGGER.warning("Request error: %s", url)
             return self._get(params)
 
-        LOGGER.debug("Request success: %s", res.url)
+        LOGGER.debug("Request success: %s", url)
 
         return soup
 
@@ -254,7 +275,11 @@ class Hiscores:
 
         # check if the last value on the page is `value`
         # if so jump forwards
-        last_val = trs[-1][column].a.string.strip().replace(",", "")
+        try:
+            last_val = trs[-1][column].a.string.strip().replace(",", "")
+        except IndexError as exc:
+            LOGGER.error(soup)
+            raise exc
 
         if int(last_val) >= value:
             if not _checked:
@@ -476,11 +501,16 @@ class Hiscores:
             # load the page and get the last row of the hiscores table
             params.update({"page": page})
             soup = self._get(params)
-            cells = tuple(
-                x
-                for x in soup.select("div.tableWrap tbody tr")[-1].contents
-                if not isinstance(x, nstr)
-            )
+
+            try:
+                cells = tuple(
+                    x
+                    for x in soup.select("div.tableWrap tbody tr")[-1].contents
+                    if not isinstance(x, nstr)
+                )
+            except IndexError as exc:
+                LOGGER.error(soup)
+                raise exc
 
             rank = int(cells[0].a.string.strip().replace(",", ""))
             level = int(cells[2].a.string.strip().replace(",", ""))

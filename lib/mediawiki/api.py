@@ -51,7 +51,7 @@ class Api:
 
         # only log get requests to avoid logging sensitive data
         if is_get:
-            LOGGER.debug("Requested: %s: %r", res.url, kwargs)
+            LOGGER.debug("Requested: %s: %r", res.url)
 
         try:
             res.encoding = "utf-8-sig"

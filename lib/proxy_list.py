@@ -83,7 +83,7 @@ class ProxyList:
 
         # implement delay between requests
         # so we're not excessively hammering someone else's site
-        if self.last not None:
+        if self.last is not None:
             diff = now - self.last
 
             if diff < self.iter_delay:

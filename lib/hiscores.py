@@ -8,6 +8,7 @@ from copy import copy
 from enum import Enum
 import logging
 import math
+import time
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 from bs4 import BeautifulSoup, NavigableString as nstr
@@ -220,9 +221,11 @@ class Hiscores:
         url_parts[4] = urlencode(query)
         url = urlunparse(url_parts)
 
+        start = time.perf_counter()
         res = requests.get(proxy, params={"url": url}, headers=HEADERS)
-        LOGGER.debug("Response status: %s", res.status_code)
+        end = time.perf_counter()
 
+        LOGGER.debug("Request: %s %s in %.2f seconds", res.status_code, url, end - start)
         self._total_requests += 1
 
         if res.status_code != 200:
@@ -238,8 +241,6 @@ class Hiscores:
 
             LOGGER.warning("Request error: %s", url)
             return self._get(params)
-
-        LOGGER.debug("Request success: %s", url)
 
         return soup
 

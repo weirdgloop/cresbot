@@ -225,7 +225,9 @@ class Hiscores:
         res = requests.get(proxy, params={"url": url}, headers=HEADERS)
         end = time.perf_counter()
 
-        LOGGER.debug("Request: %s %s in %.2f seconds", res.status_code, url, end - start)
+        LOGGER.debug(
+            "Request: %s %s in %.2f seconds", res.status_code, url, end - start
+        )
         self._total_requests += 1
 
         if res.status_code != 200:
@@ -268,7 +270,9 @@ class Hiscores:
             _checked = []
 
         soup = self._get(params)
-        rows = (x for x in soup.select("div.tableWrap tbody tr") if not isinstance(x, nstr))
+        rows = (
+            x for x in soup.select("div.tableWrap tbody tr") if not isinstance(x, nstr)
+        )
         trs = []
 
         for row in rows:
@@ -373,14 +377,16 @@ class Hiscores:
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug("Start page for %s 99s count: %s (rank: %s)", skill.en, start_page, last)
+        LOGGER.debug(
+            "Start page for %s 99s count: %s (rank: %s)", skill.en, start_page, last
+        )
 
         params = copy(self._default_params)
         params.update({"table": skill.value, "page": start_page})
 
         with self.set_url(URL):
             ret = self._find_value(params, 3, skill.xp_99)
-            LOGGER.info("%s 99s count: %s", skill.en, ret)
+            LOGGER.info("%s 99s count: %s", skill.en.capitalize(), ret)
 
         return ret
 
@@ -396,7 +402,10 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 99s ironman count: %s (rank: %s)", skill.en, start_page, last,
+            "Start page for %s 99s ironman count: %s (rank: %s)",
+            skill.en,
+            start_page,
+            last,
         )
 
         params = copy(self._default_params)
@@ -404,7 +413,7 @@ class Hiscores:
 
         with self.set_url(URL_IRONMAN):
             ret = self._find_value(params, 3, skill.xp_99)
-            LOGGER.info("%s 99s ironman count: %s", skill.en, ret)
+            LOGGER.info("%s 99s ironman count: %s", skill.en.capitalize(), ret)
 
         return ret
 
@@ -413,14 +422,16 @@ class Hiscores:
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug("Start page for %s 120s count: %s (rank: %s)", skill.en, start_page, last)
+        LOGGER.debug(
+            "Start page for %s 120s count: %s (rank: %s)", skill.en, start_page, last
+        )
 
         params = copy(self._default_params)
         params.update({"table": skill.value, "page": start_page})
 
         with self.set_url(URL):
             ret = self._find_value(params, 3, skill.xp_120)
-            LOGGER.info("%s 120s count: %s", skill.en, ret)
+            LOGGER.info("%s 120s count: %s", skill.en.capitalize().capitalize(), ret)
 
         return ret
 
@@ -436,7 +447,10 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 120s ironman count: %s (rank: %s)", skill.en, start_page, last,
+            "Start page for %s 120s ironman count: %s (rank: %s)",
+            skill.en,
+            start_page,
+            last,
         )
 
         params = copy(self._default_params)
@@ -444,7 +458,7 @@ class Hiscores:
 
         with self.set_url(URL_IRONMAN):
             ret = self._find_value(params, 3, skill.xp_120)
-            LOGGER.info("%s 120s ironman count: %s", skill.en, ret)
+            LOGGER.info("%s 120s ironman count: %s", skill.en.capitalize(), ret)
 
         return ret
 
@@ -454,7 +468,10 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 200m XP count: %s (rank: %s)", skill.en, start_page, last,
+            "Start page for %s 200m XP count: %s (rank: %s)",
+            skill.en,
+            start_page,
+            last,
         )
 
         params = copy(self._default_params)
@@ -462,7 +479,7 @@ class Hiscores:
 
         with self.set_url(URL):
             ret = self._find_value(params, 3, skill.xp_max)
-            LOGGER.info("%s 200m XP count: %s", skill.en, ret)
+            LOGGER.info("%s 200m XP count: %s", skill.en.capitalize(), ret)
 
         return ret
 
@@ -472,7 +489,10 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 200m ironman XP count: %s (rank: %s)", skill.en, start_page, last,
+            "Start page for %s 200m ironman XP count: %s (rank: %s)",
+            skill.en,
+            start_page,
+            last,
         )
 
         params = copy(self._default_params)
@@ -480,7 +500,7 @@ class Hiscores:
 
         with self.set_url(URL_IRONMAN):
             ret = self._find_value(params, 3, skill.xp_max)
-            LOGGER.info("%s 200m XP ironman count: %s", skill.en, ret)
+            LOGGER.info("%s 200m XP ironman count: %s", skill.en.capitalize(), ret)
 
         return ret
 
@@ -517,7 +537,7 @@ class Hiscores:
             rank = int(cells[0].a.string.strip().replace(",", ""))
             level = int(cells[2].a.string.strip().replace(",", ""))
 
-        LOGGER.info("%s lowest rank: %s, level: %s", skill.en, rank, level)
+        LOGGER.info("%s lowest rank: %s, level: %s", skill.en.capitalize(), rank, level)
 
         return {
             "rank": rank,

@@ -5,9 +5,6 @@
 # the directory to keep logs in
 log_dir = '/path/to/logs'
 
-# the api url for the wiki
-api_path = 'https://rs.weirdgloop.org/api.php'
-
 # the credentials for logging into the api with
 username = 'username@name'
 password = 'password_token'

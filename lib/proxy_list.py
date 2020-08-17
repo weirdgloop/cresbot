@@ -70,7 +70,9 @@ class ProxyList:
 
             if diff < self.delay:
                 sleep = self.delay - diff
-                LOGGER.debug("Sleeping %.2f seconds before yielding %s (delay)", diff, ret)
+                LOGGER.debug(
+                    "Sleeping %.2f seconds before yielding %s (delay)", diff, ret
+                )
                 time.sleep(sleep)
 
             self.used[self.index] = time.perf_counter()
@@ -89,7 +91,9 @@ class ProxyList:
 
             if diff < self.iter_delay:
                 sleep = self.iter_delay - diff
-                LOGGER.debug("Sleeping %.2f seconds before yielding %s (iter delay)", diff, ret)
+                LOGGER.debug(
+                    "Sleeping %.2f seconds before yielding %s (iter delay)", diff, ret
+                )
                 time.sleep(sleep)
 
         self.last = time.perf_counter()

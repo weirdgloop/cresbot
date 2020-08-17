@@ -10,13 +10,19 @@ from lib.config import Config
 from lib.util import setup_logging
 from lib.hiscores import Hiscores
 from lib.proxy_list import ProxyList
-from lib.rswiki.hiscore_counts import get_current_counts, update_counts, save_counts, Language
+from lib.rswiki.hiscore_counts import (
+    get_current_counts,
+    update_counts,
+    store_counts,
+    save_counts,
+    Language,
+)
 
 
 LOGGER = logging.getLogger(__name__)
 
 LOG_FILE_FMT = "hiscorecounts-{}.log"
-PAGE_NAME = "Module:Hiscore counts"
+COUNTS_FILE_FMT = "hiscorecounts-{}.json"
 
 PROXY_URL_FMT = "https://us-central1-runescape-wiki.cloudfunctions.net/exchange{}"
 
@@ -35,7 +41,12 @@ def main():
         cur_counts = get_current_counts(config, Language.EN.module)
         new_counts = update_counts(cur_counts, hiscores)
 
+        store_counts(
+            COUNTS_FILE_FMT.format(start.strftime("%Y-%m-%d_%H-%M-%S")), new_counts
+        )
+
         save_counts(config, Language.EN, new_counts)
+        save_counts(config, Language.PT_BR, new_counts)
     except Exception as exc:
         LOGGER.exception(exc)
     else:
@@ -63,7 +74,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("config", help="the configuration file for the task")
-    parser.add_argument("-v", "--verbose", action="count", default=0, help="increase log verbosity")
+    parser.add_argument(
+        "-v", "--verbose", action="count", default=0, help="increase log verbosity"
+    )
 
     return parser.parse_args()
 

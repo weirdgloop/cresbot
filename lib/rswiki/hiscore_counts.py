@@ -7,6 +7,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
+import json
 import locale
 import logging
 import re
@@ -36,9 +37,20 @@ class Language(Enum):
     PT_BR = "pt-br"
 
     @property
+    def api_path(self) -> str:
+        """Get the API path for the wiki."""
+        return {
+            Language.EN: "https://runescape.wiki/api.php",
+            Language.PT_BR: "https://pt.runescape.wiki/api.php",
+        }[self]
+
+    @property
     def module(self) -> str:
         """Get the name of the module for the language."""
-        return {Language.EN: "Module:Hiscore counts", Language.PT_BR: "Módulo:Contagem de Recordes",}[self]
+        return {
+            Language.EN: "Module:Hiscore counts",
+            Language.PT_BR: "Módulo:Contagem de Recordes",
+        }[self]
 
     @property
     def updated(self) -> str:
@@ -63,13 +75,18 @@ class Language(Enum):
     @property
     def edit_summary(self):
         """Get the edit summary for the language."""
-        return {Language.EN: "Updating hiscore counts", Language.PT_BR: "Atualizando a contagem de recordes",}[self]
+        return {
+            Language.EN: "Updating hiscore counts",
+            Language.PT_BR: "Atualizando a contagem de recordes",
+        }[self]
 
     @contextmanager
     def locale(self):
         """Set the time locale for the language within a context."""
         # TODO: need to get en_GB.UTF-8 and pt_BR.UTF-8 installed
-        locale_string = {Language.EN: "en_US.UTF-8", Language.PT_BR: "pt_BR.UTF-8"}[self]
+        locale_string = {Language.EN: "en_US.UTF-8", Language.PT_BR: "pt_BR.UTF-8"}[
+            self
+        ]
         prev_locale_string = locale.getlocale(locale.LC_TIME)
 
         locale.setlocale(locale.LC_TIME, locale_string)
@@ -111,19 +128,19 @@ class Table(Enum):
             Table.COUNT_120_IRONMAN: "contagem_120s_independente",
             Table.COUNT_200MXP: "contagem_200mxp",
             Table.COUNT_200MXP_IRONMAN: "contagem_200mxp_independente",
-            Table.LOWEST_RANKS: "nivel_minimo"
+            Table.LOWEST_RANKS: "nivel_minimo",
         }[self]
 
 
-def get_current_counts(config: Config, page: str) -> str:
+def get_current_counts(config: Config, lang: Language) -> str:
     """Get the current counts.
 
     Used to determine the start point for looking for the current value.
     """
-    api = Api(config.username, config.password, config.api_path)
+    api = Api(config.username, config.password, lang.api_path)
 
     with api:
-        text = api.get_page_content(page)
+        text = api.get_page_content(lang.module)
 
     ret = defaultdict(dict)
     rgx = re.compile(r'(\w+?)\[[\'"](.+?)[\'"]\]\s*=\s*[\'"]([\d,]+?)[\'"]')
@@ -206,7 +223,9 @@ def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
                 LOGGER.exception(exc)
 
         try:
-            count_200mxp[skill] = hiscores.get_200m_xp(skill, count_200mxp.get(skill, 1))
+            count_200mxp[skill] = hiscores.get_200m_xp(
+                skill, count_200mxp.get(skill, 1)
+            )
         except HiscoresError as exc:
             LOGGER.error("Unable to get 200m XP count for %s", skill.en)
             LOGGER.exception(exc)
@@ -247,10 +266,30 @@ def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
     }
 
 
+def store_counts(filepath: str, new_counts: dict):
+    """
+    """
+    data = {}
+
+    for table, counts in new_counts.items():
+        data[table.en] = {}
+
+        for skill, value in counts.items():
+            if isinstance(skill, Skill):
+                data[table.en][skill.en] = value
+            else:
+                data[table.en][skill] = value
+
+    content = json.dumps(data, indent=2, sort_keys=True)
+
+    with open(filepath, "wt") as fh:
+        fh.write(content + "\n")
+
+
 def save_counts(config: Config, lang: Language, new_counts: dict):
     """
     """
-    api = Api(config.username, config.password, config.api_path)
+    api = Api(config.username, config.password, lang.api_path)
 
     with api:
         text = api.get_page_content(lang.module)
@@ -270,11 +309,17 @@ def save_counts(config: Config, lang: Language, new_counts: dict):
                             else:
                                 name = skill_local + ".{}".format(lang.rank)
 
-                            text = replace_count(text, table_local, name, val, lang.date_fmt)
+                            text = replace_count(
+                                text, table_local, name, val, lang.date_fmt
+                            )
                     else:
-                        text = replace_count(text, table_local, skill_local, value, lang.date_fmt)
+                        text = replace_count(
+                            text, table_local, skill_local, value, lang.date_fmt
+                        )
 
-                text = replace_count(text, table_local, lang.updated, updated, lang.date_fmt)
+                text = replace_count(
+                    text, table_local, lang.updated, updated, lang.date_fmt
+                )
 
         LOGGER.info("Updating hiscore counts for API: %s", api.api_path)
         api.edit_page(lang.module, text, lang.edit_summary)
@@ -285,7 +330,9 @@ def replace_count(text: str, table: str, name: str, value: int, date_fmt: str) -
     """
     if name == "updated":
         pattern = UPDATED_PATTERN.format(table=table, name=name)
-        replace = UPDATED_REPLACE.format(table=table, name=name, value=value.strftime(date_fmt))
+        replace = UPDATED_REPLACE.format(
+            table=table, name=name, value=value.strftime(date_fmt)
+        )
     else:
         pattern = SKILL_PATTERN.format(table=table, name=name)
         replace = SKILL_REPLACE.format(table=table, name=name, value=value)

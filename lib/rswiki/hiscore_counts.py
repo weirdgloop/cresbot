@@ -68,9 +68,10 @@ class Language(Enum):
     @contextmanager
     def locale(self):
         """Set the time locale for the language within a context."""
-        locale_string = {Language.EN: "en_GB.UTF-8", Language.PT_BR: "pt_BR.utf8"}[self]
-
+        # TODO: need to get en_GB.UTF-8 and pt_BR.UTF-8 installed
+        locale_string = {Language.EN: "en_US.UTF-8", Language.PT_BR: "pt_BR.UTF-8"}[self]
         prev_locale_string = locale.getlocale(locale.LC_TIME)
+
         locale.setlocale(locale.LC_TIME, locale_string)
         yield
         locale.setlocale(locale.LC_TIME, prev_locale_string)

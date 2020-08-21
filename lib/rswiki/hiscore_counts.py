@@ -237,8 +237,6 @@ def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
             LOGGER.error("Unable to get lowest rank data for %s", skill.en)
             LOGGER.exception(exc)
 
-        break
-
     now = datetime.utcnow()
 
     count_99s[Language.EN.updated] = now

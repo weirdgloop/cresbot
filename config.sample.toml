@@ -5,6 +5,18 @@
 # the directory to keep logs in
 log_dir = '/path/to/logs'
 
+# the proxies to use for the requests
+proxies = [
+	'example',
+]
+
 # the credentials for logging into the api with
+[wiki.en]
+api_path = 'https://runescape.wiki/api.php'
+username = 'username@name'
+password = 'password_token'
+
+[wiki.pt_br]
+api_path = 'https://pt.runescape.wiki/api.php'
 username = 'username@name'
 password = 'password_token'

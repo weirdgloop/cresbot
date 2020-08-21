@@ -5,6 +5,7 @@
 
 from collections import defaultdict
 from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime
 from enum import Enum
 import json
@@ -12,7 +13,7 @@ import locale
 import logging
 import re
 
-from ..config import Config
+from ..config import WikiConfig
 from ..exception import HiscoresError
 from ..mediawiki import Api
 from ..hiscores import Hiscores, Skill
@@ -37,12 +38,8 @@ class Language(Enum):
     PT_BR = "pt-br"
 
     @property
-    def api_path(self) -> str:
-        """Get the API path for the wiki."""
-        return {
-            Language.EN: "https://runescape.wiki/api.php",
-            Language.PT_BR: "https://pt.runescape.wiki/api.php",
-        }[self]
+    def key(self) -> str:
+        return self.value.replace("-", "_")  # pylint: disable=no-member
 
     @property
     def module(self) -> str:
@@ -83,15 +80,12 @@ class Language(Enum):
     @contextmanager
     def locale(self):
         """Set the time locale for the language within a context."""
-        # TODO: need to get en_GB.UTF-8 and pt_BR.UTF-8 installed
-        locale_string = {Language.EN: "en_US.UTF-8", Language.PT_BR: "pt_BR.UTF-8"}[
-            self
-        ]
-        prev_locale_string = locale.getlocale(locale.LC_TIME)
+        locale_string = {Language.EN: "en_US.utf8", Language.PT_BR: "pt_BR.utf8"}[self]
+        prev_locale = locale.getlocale(locale.LC_TIME)
 
         locale.setlocale(locale.LC_TIME, locale_string)
         yield
-        locale.setlocale(locale.LC_TIME, prev_locale_string)
+        locale.setlocale(locale.LC_TIME, prev_locale)
 
 
 class Table(Enum):
@@ -132,12 +126,12 @@ class Table(Enum):
         }[self]
 
 
-def get_current_counts(config: Config, lang: Language) -> str:
+def get_current_counts(config: WikiConfig, lang: Language) -> str:
     """Get the current counts.
 
     Used to determine the start point for looking for the current value.
     """
-    api = Api(config.username, config.password, lang.api_path)
+    api = Api(config.username, config.password, config.api_path)
 
     with api:
         text = api.get_page_content(lang.module)
@@ -223,9 +217,7 @@ def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
                 LOGGER.exception(exc)
 
         try:
-            count_200mxp[skill] = hiscores.get_200m_xp(
-                skill, count_200mxp.get(skill, 1)
-            )
+            count_200mxp[skill] = hiscores.get_200m_xp(skill, count_200mxp.get(skill, 1))
         except HiscoresError as exc:
             LOGGER.error("Unable to get 200m XP count for %s", skill.en)
             LOGGER.exception(exc)
@@ -244,6 +236,8 @@ def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
         except HiscoresError as exc:
             LOGGER.error("Unable to get lowest rank data for %s", skill.en)
             LOGGER.exception(exc)
+
+        break
 
     now = datetime.utcnow()
 
@@ -278,6 +272,9 @@ def store_counts(filepath: str, new_counts: dict):
             if isinstance(skill, Skill):
                 data[table.en][skill.en] = value
             else:
+                if isinstance(value, datetime):
+                    value = value.strftime(Language.EN.date_fmt)
+
                 data[table.en][skill] = value
 
     content = json.dumps(data, indent=2, sort_keys=True)
@@ -286,21 +283,22 @@ def store_counts(filepath: str, new_counts: dict):
         fh.write(content + "\n")
 
 
-def save_counts(config: Config, lang: Language, new_counts: dict):
+def save_counts(config: WikiConfig, lang: Language, new_counts: dict):
     """
     """
-    api = Api(config.username, config.password, lang.api_path)
+    api = Api(config.username, config.password, config.api_path)
 
     with api:
         text = api.get_page_content(lang.module)
 
         with lang.locale():
             for table, counts in new_counts.items():
-                table_local = getattr(table, lang.value)
-                updated = counts.pop(Language.EN.updated)
+                _counts = deepcopy(counts)
+                table_local = getattr(table, lang.key)
+                updated = _counts.pop(Language.EN.updated)
 
-                for skill, value in counts.items():
-                    skill_local = getattr(skill, lang.value)
+                for skill, value in _counts.items():
+                    skill_local = getattr(skill, lang.key)
 
                     if table == Table.LOWEST_RANKS:
                         for key, val in value.items():
@@ -309,17 +307,11 @@ def save_counts(config: Config, lang: Language, new_counts: dict):
                             else:
                                 name = skill_local + ".{}".format(lang.rank)
 
-                            text = replace_count(
-                                text, table_local, name, val, lang.date_fmt
-                            )
+                            text = replace_count(text, table_local, name, val, lang.date_fmt)
                     else:
-                        text = replace_count(
-                            text, table_local, skill_local, value, lang.date_fmt
-                        )
+                        text = replace_count(text, table_local, skill_local, value, lang.date_fmt)
 
-                text = replace_count(
-                    text, table_local, lang.updated, updated, lang.date_fmt
-                )
+                text = replace_count(text, table_local, lang.updated, updated, lang.date_fmt)
 
         LOGGER.info("Updating hiscore counts for API: %s", api.api_path)
         api.edit_page(lang.module, text, lang.edit_summary)
@@ -330,9 +322,7 @@ def replace_count(text: str, table: str, name: str, value: int, date_fmt: str) -
     """
     if name == "updated":
         pattern = UPDATED_PATTERN.format(table=table, name=name)
-        replace = UPDATED_REPLACE.format(
-            table=table, name=name, value=value.strftime(date_fmt)
-        )
+        replace = UPDATED_REPLACE.format(table=table, name=name, value=value.strftime(date_fmt))
     else:
         pattern = SKILL_PATTERN.format(table=table, name=name)
         replace = SKILL_REPLACE.format(table=table, name=name, value=value)

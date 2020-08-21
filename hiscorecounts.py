@@ -5,6 +5,8 @@
 import argparse
 from datetime import datetime
 import logging
+import os
+import time
 
 from lib.config import Config
 from lib.util import setup_logging
@@ -24,42 +26,43 @@ LOGGER = logging.getLogger(__name__)
 LOG_FILE_FMT = "hiscorecounts-{}.log"
 COUNTS_FILE_FMT = "hiscorecounts-{}.json"
 
-PROXY_URL_FMT = "https://us-central1-runescape-wiki.cloudfunctions.net/exchange{}"
-
 
 def main():
     """Program entry point."""
     args = parse_args()
     config = Config.from_toml(args.config)
-    setup_logging(args.verbose, config, LOG_FILE_FMT)
+    setup_logging(args.verbose, config.log_dir, LOG_FILE_FMT)
 
-    proxy_list = ProxyList([PROXY_URL_FMT.format(i) for i in range(1, 73)], 12)
+    proxy_list = ProxyList(config.proxies, 12)
     hiscores = Hiscores(proxy_list)
-    start = datetime.utcnow()
+    start = time.perf_counter()
+    start_datetime = datetime.utcnow()
 
     try:
-        cur_counts = get_current_counts(config, Language.EN.module)
+        cur_counts = get_current_counts(config.wiki.en, Language.EN)
         new_counts = update_counts(cur_counts, hiscores)
 
-        store_counts(
-            COUNTS_FILE_FMT.format(start.strftime("%Y-%m-%d_%H-%M-%S")), new_counts
+        counts_path = os.path.join(
+            config.log_dir, COUNTS_FILE_FMT.format(start_datetime.strftime("%Y-%m-%d_%H-%M-%S"))
         )
+        store_counts(counts_path, new_counts)
 
-        save_counts(config, Language.EN, new_counts)
-        save_counts(config, Language.PT_BR, new_counts)
+        save_counts(config.wiki.en, Language.EN, new_counts)
+        save_counts(config.wiki.pt_br, Language.PT_BR, new_counts)
     except Exception as exc:
         LOGGER.exception(exc)
     else:
         LOGGER.info("Hiscore counts completed successfully")
     finally:
-        end = datetime.utcnow()
+        end = time.perf_counter()
+        diff = end - start
         # TODO: write this to separate file
         LOGGER.info(
-            "STATS: hiscores requests: %s, hiscore errors: %s, end_delay: %s, total_time: %s",
+            "STATS: hiscores requests: %s, hiscore errors: %s, end_delay: %s, total_time: %.2f",
             hiscores.total_requests,
             hiscores.error_requests,
             hiscores.proxy_list.delay,
-            str(end - start),
+            diff,
         )
         # TODO: update stats
         # TODO: keep track of errors found while getting new counts
@@ -74,9 +77,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("config", help="the configuration file for the task")
-    parser.add_argument(
-        "-v", "--verbose", action="count", default=0, help="increase log verbosity"
-    )
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="increase log verbosity")
 
     return parser.parse_args()
 

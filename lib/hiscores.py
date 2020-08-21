@@ -179,7 +179,7 @@ class Hiscores:
         """
         """
         self.proxy_list = proxy_list
-        self.proxy_list_iter = iter(proxy_list)
+        self.proxy_list_iter = iter(proxy_list) if proxy_list else None
 
         self._url = None
         self._total_requests = 0
@@ -206,13 +206,16 @@ class Hiscores:
         """Get the number of requests that resulted in an error."""
         return self._error_requests
 
-    @request_retry(retries=5)
+    @request_retry(retries=10)
     def _get(self, params: dict) -> BeautifulSoup:
         """
 
         :param **params:
         """
-        proxy = next(self.proxy_list_iter)
+        if self.proxy_list_iter is not None:
+            proxy = next(self.proxy_list_iter)
+        else:
+            proxy = None
 
         url_parts = list(urlparse(self._url))
         query = dict(parse_qsl(url_parts[4]))
@@ -222,12 +225,14 @@ class Hiscores:
         url = urlunparse(url_parts)
 
         start = time.perf_counter()
-        res = requests.get(proxy, params={"url": url}, headers=HEADERS)
+        if proxy is not None:
+            res = requests.get(proxy, params={"url": url}, headers=HEADERS)
+        else:
+            res = requests.get(url, headers=HEADERS)
+
         end = time.perf_counter()
 
-        LOGGER.debug(
-            "Request: %s %s in %.2f seconds", res.status_code, url, end - start
-        )
+        LOGGER.debug("Request: %s %s in %.2f seconds", res.status_code, url, end - start)
         self._total_requests += 1
 
         if res.status_code != 200:
@@ -270,9 +275,7 @@ class Hiscores:
             _checked = []
 
         soup = self._get(params)
-        rows = (
-            x for x in soup.select("div.tableWrap tbody tr") if not isinstance(x, nstr)
-        )
+        rows = (x for x in soup.select("div.tableWrap tbody tr") if not isinstance(x, nstr))
         trs = []
 
         for row in rows:
@@ -377,9 +380,7 @@ class Hiscores:
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug(
-            "Start page for %s 99s count: %s (rank: %s)", skill.en, start_page, last
-        )
+        LOGGER.debug("Start page for %s 99s count: %s (rank: %s)", skill.en, start_page, last)
 
         params = copy(self._default_params)
         params.update({"table": skill.value, "page": start_page})
@@ -402,10 +403,7 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 99s ironman count: %s (rank: %s)",
-            skill.en,
-            start_page,
-            last,
+            "Start page for %s 99s ironman count: %s (rank: %s)", skill.en, start_page, last,
         )
 
         params = copy(self._default_params)
@@ -422,9 +420,7 @@ class Hiscores:
         """
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
-        LOGGER.debug(
-            "Start page for %s 120s count: %s (rank: %s)", skill.en, start_page, last
-        )
+        LOGGER.debug("Start page for %s 120s count: %s (rank: %s)", skill.en, start_page, last)
 
         params = copy(self._default_params)
         params.update({"table": skill.value, "page": start_page})
@@ -447,10 +443,7 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 120s ironman count: %s (rank: %s)",
-            skill.en,
-            start_page,
-            last,
+            "Start page for %s 120s ironman count: %s (rank: %s)", skill.en, start_page, last,
         )
 
         params = copy(self._default_params)
@@ -468,10 +461,7 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 200m XP count: %s (rank: %s)",
-            skill.en,
-            start_page,
-            last,
+            "Start page for %s 200m XP count: %s (rank: %s)", skill.en, start_page, last,
         )
 
         params = copy(self._default_params)
@@ -489,10 +479,7 @@ class Hiscores:
         # 25 ranks per page
         start_page = max(1, math.ceil(last / 25))
         LOGGER.debug(
-            "Start page for %s 200m ironman XP count: %s (rank: %s)",
-            skill.en,
-            start_page,
-            last,
+            "Start page for %s 200m ironman XP count: %s (rank: %s)", skill.en, start_page, last,
         )
 
         params = copy(self._default_params)

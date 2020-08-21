@@ -58,9 +58,7 @@ class Api:
             ret = res.json()
         except JSONDecodeError as exc:
             LOGGER.exception(exc)
-            raise MediaWikiError(
-                "Unable to decode response: {!s}".format(res.text)
-            ) from exc
+            raise MediaWikiError("Unable to decode response: {!s}".format(res.text)) from exc
 
         if "error" in ret:
             raise MediaWikiError("Unexpected error: {!r}".format(ret))
@@ -110,10 +108,7 @@ class Api:
 
         token = self.get_token("login")
         res = self._call(
-            action="login",
-            lgname=self.username,
-            lgpassword=self.password,
-            lgtoken=token,
+            action="login", lgname=self.username, lgpassword=self.password, lgtoken=token,
         )
 
         if res["login"]["result"] != "Success":
@@ -139,9 +134,7 @@ class Api:
         :return: The page content.
         """
         LOGGER.debug("Requesting page content of %r", pagename)
-        res = self._call(
-            action="query", prop="revisions", titles=pagename, rvprop="content",
-        )
+        res = self._call(action="query", prop="revisions", titles=pagename, rvprop="content",)
 
         try:
             pages = res["query"]["pages"]
@@ -160,9 +153,7 @@ class Api:
         :param str summary: An optional edit summary.
         """
         token = self.get_token()
-        res = self._call(
-            action="edit", title=pagename, summary=summary, text=text, token=token
-        )
+        res = self._call(action="edit", title=pagename, summary=summary, text=text, token=token)
 
         try:
             if res["edit"]["result"] != "Success":

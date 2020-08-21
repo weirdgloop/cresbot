@@ -7,15 +7,13 @@ import logging
 import sys
 import os
 
-from .config import Config
-
 
 __all__ = ["setup_logging"]
 
 LOG_LEVELS = [logging.WARNING, logging.INFO, logging.DEBUG]
 
 
-def setup_logging(verbose: int, config: Config, log_file_fmt: str):
+def setup_logging(verbose: int, log_dir: str, log_file_fmt: str):
     """Configure logging.
 
     :param int verbose:
@@ -33,9 +31,8 @@ def setup_logging(verbose: int, config: Config, log_file_fmt: str):
     formatter = logging.Formatter(log_format, datefmt=date_format)
 
     cur_date = datetime.utcnow()
-    log_path = os.path.join(
-        config.log_dir, log_file_fmt.format(cur_date.strftime("%Y-%m-%d_%H-%M-%S"))
-    )
+    log_file = log_file_fmt.format(cur_date.strftime("%Y-%m-%d_%H-%M-%S"))
+    log_path = os.path.join(log_dir, log_file)
 
     fh = logging.FileHandler(filename=log_path)
 

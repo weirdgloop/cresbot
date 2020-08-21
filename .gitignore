@@ -1,6 +1,8 @@
 # python things
 __pycache__
 venv
+.venv
+pylint.txt
 
 # things used in production
 config.toml

@@ -246,7 +246,17 @@ class Hiscores:
             self.proxy_list_iter.delay += 1
             self._error_requests += 1
 
-            LOGGER.warning("Request error: %s", url)
+            LOGGER.warning("Request error: %s (proxy: %s)", url, proxy)
+            return self._get(params)
+
+        # handle weird sign in page from proxy
+        rows = soup.select("div.tableWrap tbody tr")
+
+        if not rows:
+            self.proxy_list_iter.delay += 1
+            self._error_requests += 1
+
+            LOGGER.warning("Missing hiscores table in response: %s (proxy: %s)", url, proxy)
             return self._get(params)
 
         return soup

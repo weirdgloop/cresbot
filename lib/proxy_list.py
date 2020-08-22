@@ -1,7 +1,6 @@
 #
 
-"""
-"""
+"""An iterator for spreading requests over multiple proxies to get around Jagex's rate limiting."""
 
 import logging
 import time

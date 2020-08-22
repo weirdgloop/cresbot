@@ -1,6 +1,6 @@
 #
 
-"""
+"""Utilities for working with hiscore counts modules.
 """
 
 from collections import defaultdict
@@ -39,6 +39,7 @@ class Language(Enum):
 
     @property
     def key(self) -> str:
+        """Get the language in a format usable for python attribute lookups."""
         return self.value.replace("-", "_")  # pylint: disable=no-member
 
     @property
@@ -176,7 +177,12 @@ def get_current_counts(config: WikiConfig, lang: Language) -> str:
 
 
 def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
-    """
+    """Get the latest data from the RuneScape hiscores pages.
+
+    :param dict current_counts: The data to update.
+    :param Hiscores hiscores: The hiscores object to get the data with.
+
+    :return: The updated data.
     """
     count_99s = current_counts.get(Table.COUNT_99, {})
     count_99s_ironman = current_counts.get(Table.COUNT_99_IRONMAN, {})
@@ -259,7 +265,10 @@ def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
 
 
 def store_counts(filepath: str, new_counts: dict):
-    """
+    """Store the collected counts as a JSON file.
+
+    :param str filepath: The file to store the data in.
+    :param dict new_counts: The data to store.
     """
     data = {}
 
@@ -282,7 +291,11 @@ def store_counts(filepath: str, new_counts: dict):
 
 
 def save_counts(config: WikiConfig, lang: Language, new_counts: dict):
-    """
+    """Save the collected data as a module on a wiki.
+
+    :param WikiConfig config: The configuration for the wiki.
+    :param Language lang: The language for the wiki.
+    :param dict new_counts: The data to save.
     """
     api = Api(config.username, config.password, config.api_path)
 
@@ -305,22 +318,31 @@ def save_counts(config: WikiConfig, lang: Language, new_counts: dict):
                             else:
                                 name = skill_local + ".{}".format(lang.rank)
 
-                            text = replace_count(text, table_local, name, val, lang.date_fmt)
+                            text = replace_count(text, table_local, name, val)
                     else:
-                        text = replace_count(text, table_local, skill_local, value, lang.date_fmt)
+                        text = replace_count(text, table_local, skill_local, value)
 
-                text = replace_count(text, table_local, lang.updated, updated, lang.date_fmt)
+                text = replace_count(
+                    text, table_local, lang.updated, updated.strftime(lang.date_fmt)
+                )
 
         LOGGER.info("Updating hiscore counts for API: %s", api.api_path)
         api.edit_page(lang.module, text, lang.edit_summary)
 
 
-def replace_count(text: str, table: str, name: str, value: int, date_fmt: str) -> str:
+def replace_count(text: str, table: str, name: str, value: int) -> str:
+    """Replace a count within the given table.
+
+    :param str text: The text to update.
+    :param str table: The name of the table to update.
+    :param str name: The name of the key in the table to update.
+    :param int value: The value to update with.
+
+    :return: The updated text.
     """
-    """
-    if name == "updated":
+    if name in [lang.updated for lang in Language]:
         pattern = UPDATED_PATTERN.format(table=table, name=name)
-        replace = UPDATED_REPLACE.format(table=table, name=name, value=value.strftime(date_fmt))
+        replace = UPDATED_REPLACE.format(table=table, name=name, value=value)
     else:
         pattern = SKILL_PATTERN.format(table=table, name=name)
         replace = SKILL_REPLACE.format(table=table, name=name, value=value)

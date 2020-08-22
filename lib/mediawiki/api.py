@@ -1,7 +1,6 @@
 # Copyright (C) 2018 Matthew Dowdell <mdowdell244@gmail.com>
 
-"""
-"""
+"""Utilities for interacting with the MediaWiki API."""
 
 from json.decoder import JSONDecodeError
 import logging

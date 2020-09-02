@@ -327,7 +327,7 @@ def save_counts(config: WikiConfig, lang: Language, new_counts: dict):
                 )
 
         LOGGER.info("Updating hiscore counts for API: %s", api.api_path)
-        api.edit_page(lang.module, text, lang.edit_summary)
+        api.edit_page(lang.module, text, lang.edit_summary, bot=True)
 
 
 def replace_count(text: str, table: str, name: str, value: int) -> str:

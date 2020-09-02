@@ -144,7 +144,7 @@ class Api:
         else:
             return content
 
-    def edit_page(self, pagename: str, text: str, summary: str = ""):
+    def edit_page(self, pagename: str, text: str, summary: str = "", bot: bool = False):
         """Edit a page.
 
         :param str pagename: The name of the page to edit.
@@ -152,7 +152,7 @@ class Api:
         :param str summary: An optional edit summary.
         """
         token = self.get_token()
-        res = self._call(action="edit", title=pagename, summary=summary, text=text, token=token)
+        res = self._call(action="edit", title=pagename, summary=summary, text=text, token=token, bot=bot)
 
         try:
             if res["edit"]["result"] != "Success":

@@ -25,7 +25,7 @@ __all__ = []
 LOGGER = logging.getLogger(__name__)
 
 SKILL_PATTERN = r'{table}\[[\'"]{name}[\'"]\]\s*=\s*[\'"]([\d,]+?)[\'"]'
-SKILL_REPLACE = '{table}["{name}"] = "{value:,}"'
+SKILL_REPLACE = '{table}["{name}"] = "{value}"'
 
 UPDATED_PATTERN = r'{table}\[[\'"]{name}[\'"]\]\s*=\s*[\'"]([\w ]+?)[\'"]'
 UPDATED_REPLACE = '{table}["{name}"] = "{value}"'
@@ -82,11 +82,11 @@ class Language(Enum):
     def locale(self):
         """Set the time locale for the language within a context."""
         locale_string = {Language.EN: "en_US.utf8", Language.PT_BR: "pt_BR.utf8"}[self]
-        prev_locale = locale.getlocale(locale.LC_TIME)
+        prev_locale = locale.getlocale()
 
-        locale.setlocale(locale.LC_TIME, locale_string)
+        locale.setlocale(locale.LC_ALL, locale_string)
         yield
-        locale.setlocale(locale.LC_TIME, prev_locale)
+        locale.setlocale(locale.LC_ALL, prev_locale)
 
 
 class Table(Enum):
@@ -345,6 +345,6 @@ def replace_count(text: str, table: str, name: str, value: int) -> str:
         replace = UPDATED_REPLACE.format(table=table, name=name, value=value)
     else:
         pattern = SKILL_PATTERN.format(table=table, name=name)
-        replace = SKILL_REPLACE.format(table=table, name=name, value=value)
+        replace = SKILL_REPLACE.format(table=table, name=name, value=f"{value:n}")
 
     return re.sub(pattern, replace, text)

@@ -35,6 +35,7 @@ def main():
 
     proxy_list = ProxyList(config.proxies, 12)
     hiscores = Hiscores(proxy_list)
+
     start = time.perf_counter()
     start_datetime = datetime.utcnow()
 

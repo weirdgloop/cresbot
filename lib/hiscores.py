@@ -179,7 +179,7 @@ class Hiscores:
         """
         """
         self.proxy_list = proxy_list
-        self.proxy_list_iter = iter(proxy_list) if proxy_list else None
+        self.proxy_list_iter = iter(proxy_list)
 
         self._url = None
         self._total_requests = 0
@@ -212,10 +212,7 @@ class Hiscores:
 
         :param **params:
         """
-        if self.proxy_list_iter is not None:
-            proxy = next(self.proxy_list_iter)
-        else:
-            proxy = None
+        proxy = next(self.proxy_list_iter)
 
         url_parts = list(urlparse(self._url))
         query = dict(parse_qsl(url_parts[4]))

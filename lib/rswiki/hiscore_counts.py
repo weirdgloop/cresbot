@@ -24,7 +24,7 @@ __all__ = []
 
 LOGGER = logging.getLogger(__name__)
 
-SKILL_PATTERN = r'{table}\[[\'"]{name}[\'"]\]\s*=\s*[\'"]([\d,]+?)[\'"]'
+SKILL_PATTERN = r'{table}\[[\'"]{name}[\'"]\]\s*=\s*[\'"]([\d\.,]+?)[\'"]'
 SKILL_REPLACE = '{table}["{name}"] = "{value}"'
 
 UPDATED_PATTERN = r'{table}\[[\'"]{name}[\'"]\]\s*=\s*[\'"]([\w ]+?)[\'"]'

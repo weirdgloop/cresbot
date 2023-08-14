@@ -97,6 +97,7 @@ class Skill(Enum):
     DIVINATION = 26
     INVENTION = 27
     ARCHAEOLOGY = 28
+    NECROMANCY = 29
 
     def __repr__(self) -> str:
         return "{}.{}".format(self.__class__.__name__, self.name)
@@ -168,6 +169,7 @@ class Skill(Enum):
             Skill.DIVINATION: "divinação",
             Skill.INVENTION: "invenção",
             Skill.ARCHAEOLOGY: "arqueologia",
+            Skill.NECROMANCY: "necromancia",
         }[self]
 
 

@@ -516,6 +516,10 @@ class Hiscores:
             # should be 7 keys here
             page = soup.select(".pageNumbers li a")[-1].string
 
+            # we something return 25 even though there are definitely later pages
+            # so check what we're finding in those scenarios
+            LOGGER.info("checking page %s for skill %s", page, skill.en.capitalize())
+
             # load the page and get the last row of the hiscores table
             params.update({"page": page})
             soup = self._get(params)

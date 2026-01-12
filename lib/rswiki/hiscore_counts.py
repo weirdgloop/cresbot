@@ -237,8 +237,17 @@ def update_counts(current_counts: dict, hiscores: Hiscores) -> dict:
             LOGGER.exception(exc)
 
         try:
-            lowest = hiscores.get_lowest_rank(skill)
-            lowest_ranks[skill] = lowest
+            lowest_rank_attempts=0
+            _lowest = {}
+            while lowest_rank_attempts < 5:
+                lowest = hiscores.get_lowest_rank(skill)
+                if lowest['rank'] == 25:
+                    _lowest = {'rank': lowest['rank_bound'], 'level': lowest['level_bound']}
+                else:
+                    _lowest = {'rank': lowest['rank'], 'level': lowest['level']}
+                    break
+                lowest_rank_attempts+=1
+            lowest_ranks[skill] = _lowest
         except HiscoresError as exc:
             LOGGER.error("Unable to get lowest rank data for %s", skill.en)
             LOGGER.exception(exc)
